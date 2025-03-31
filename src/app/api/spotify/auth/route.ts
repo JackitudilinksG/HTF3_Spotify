@@ -6,7 +6,7 @@ const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 // Get the base URL from the request
 function getBaseUrl(request: Request) {
   // For local development, always use localhost:3000
-  return 'http://localhost:3000';
+  return 'https://htfy.vercel.app/';
 }
 
 export async function GET(request: Request) {
