@@ -5,15 +5,8 @@ const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 
 // Get the base URL from the request
 function getBaseUrl(request: Request) {
-  // Get the host from the request
-  const host = request.headers.get('host');
-  if (!host) {
-    throw new Error('No host header found');
-  }
-
-  // Always use https in production
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-  return `${protocol}://${host}`;
+  // For local development, always use localhost:3000
+  return 'http://localhost:3000';
 }
 
 export async function GET(request: Request) {

@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     }
 
     const data = await response.json();
-    console.log('Spotify API response:', data);
+    console.dir('Spotify API response:', data);
 
     // Check if we have tracks in the response
     if (!data.tracks || !data.tracks.items) {
