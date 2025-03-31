@@ -9,6 +9,6 @@
   "env": {
     "SPOTIFY_CLIENT_ID": "8359cfdda9ea452c9972812f0fd42cd9",
     "SPOTIFY_CLIENT_SECRET": "6c153829d86b49ba8dce9820ff2db10c",
-    "SPOTIFY_REDIRECT_URI": "https://htfy-cqvzy2wn1-jackitudilinksgs-projects.vercel.app/api/spotify/callback"
+    "SPOTIFY_REDIRECT_URI": "https://htfy.vercel.app/api/spotify/callback"
   }
 } 
