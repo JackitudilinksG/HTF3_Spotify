@@ -5,21 +5,15 @@ const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 
 // Get the base URL from the request
 function getBaseUrl(request: Request) {
-  // Check if we're in production
-  if (process.env.NODE_ENV === 'production') {
-    // Get the host from the request
-    const host = request.headers.get('host');
-    // If host contains vercel.app, use it
-    if (host?.includes('vercel.app')) {
-      return `https://${host}`;
-    }
-    // Fallback to the production URL
-    return 'https://htfy.vercel.app';
-  }
-  
-  // In development, use localhost
+  // Get the host from the request
   const host = request.headers.get('host');
-  return `http://${host}`;
+  if (!host) {
+    throw new Error('No host header found');
+  }
+
+  // Always use https in production
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  return `${protocol}://${host}`;
 }
 
 export async function GET(request: Request) {
