@@ -2,20 +2,46 @@ import { NextResponse } from 'next/server';
 
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
-const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3000/api/spotify/callback';
+
+// Get the base URL from the request
+function getBaseUrl(request: Request) {
+  // Check if we're in production
+  if (process.env.NODE_ENV === 'production') {
+    // Get the host from the request
+    const host = request.headers.get('host');
+    // If host contains vercel.app, use it
+    if (host?.includes('vercel.app')) {
+      return `https://${host}`;
+    }
+    // Fallback to the production URL
+    return 'https://htfy.vercel.app';
+  }
+  
+  // In development, use localhost
+  const host = request.headers.get('host');
+  return `http://${host}`;
+}
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const code = searchParams.get('code');
-  const state = searchParams.get('state');
-
-  if (!code || !state) {
-    console.error('Missing code or state in callback');
-    return NextResponse.redirect(new URL('/?error=missing_params', request.url));
-  }
-
   try {
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+
+    if (!code || !state) {
+      console.error('Missing code or state in callback');
+      return NextResponse.redirect(new URL('/?error=missing_params', request.url));
+    }
+
+    const baseUrl = getBaseUrl(request);
+    const redirectUri = `${baseUrl}/api/spotify/callback`;
+
     console.log('Exchanging code for access token...');
+    console.log('Using redirect URI:', redirectUri);
+    console.log('Using client ID:', SPOTIFY_CLIENT_ID?.substring(0, 5) + '...');
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('Host:', request.headers.get('host'));
+
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
@@ -24,7 +50,7 @@ export async function GET(request: Request) {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: redirectUri,
         client_id: SPOTIFY_CLIENT_ID!,
         client_secret: SPOTIFY_CLIENT_SECRET!,
       }),

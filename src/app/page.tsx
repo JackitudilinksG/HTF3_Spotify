@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
+import { verifyTeamCode } from '@/lib/appwrite';
 
 interface SpotifyTrack {
   id: string;
@@ -9,6 +10,7 @@ interface SpotifyTrack {
   album: { name: string };
   uri: string;
   duration_ms: number;
+  team_name?: string;
 }
 
 export default function Home() {
@@ -22,6 +24,34 @@ export default function Home() {
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SpotifyTrack[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
+  const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
+
+  // Check for session timeout
+  useEffect(() => {
+    const checkSessionTimeout = () => {
+      const now = Date.now();
+      if (isLoggedIn && (now - lastActivity > SESSION_TIMEOUT)) {
+        handleLogout();
+      }
+    };
+
+    const interval = setInterval(checkSessionTimeout, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [isLoggedIn, lastActivity]);
+
+  // Update last activity on user interaction
+  useEffect(() => {
+    const updateActivity = () => setLastActivity(Date.now());
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('keypress', updateActivity);
+    window.addEventListener('click', updateActivity);
+    return () => {
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keypress', updateActivity);
+      window.removeEventListener('click', updateActivity);
+    };
+  }, []);
 
   // Check for Spotify access token in URL on mount
   useEffect(() => {
@@ -29,8 +59,34 @@ export default function Home() {
     const token = params.get('access_token');
     if (token) {
       setSpotifyAccessToken(token);
+      localStorage.setItem('spotifyAccessToken', token);
       // Clean up the URL
       window.history.replaceState({}, '', '/');
+    } else {
+      // Check localStorage for existing token
+      const storedToken = localStorage.getItem('spotifyAccessToken');
+      if (storedToken) {
+        setSpotifyAccessToken(storedToken);
+      }
+    }
+  }, []);
+
+  // Check for stored login state on mount
+  useEffect(() => {
+    const storedLoginState = localStorage.getItem('isLoggedIn');
+    const storedTeamName = localStorage.getItem('teamName');
+    const storedLastActivity = localStorage.getItem('lastActivity');
+    
+    if (storedLoginState === 'true' && storedTeamName) {
+      const lastActivityTime = storedLastActivity ? parseInt(storedLastActivity) : Date.now();
+      if (Date.now() - lastActivityTime <= SESSION_TIMEOUT) {
+        setIsLoggedIn(true);
+        setTeamName(storedTeamName);
+        setLastActivity(lastActivityTime);
+      } else {
+        // Session expired
+        handleLogout();
+      }
     }
   }, []);
 
@@ -107,11 +163,17 @@ export default function Home() {
   };
 
   const handleAddTrack = async (track: SpotifyTrack) => {
+    // Add team name to the track before sending
+    const trackWithTeam = {
+      ...track,
+      team_name: teamName
+    };
+
     // Send a POST request to add the track
     await fetch('/api/queue', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ track }),
+      body: JSON.stringify({ track: trackWithTeam }),
     });
 
     // Clear the input and update the queue
@@ -128,15 +190,34 @@ export default function Home() {
     fetchQueue();
   };
 
-  const handleLogin = (e: FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
-    // Here you would typically validate the team code
-    console.log('Team code:', teamCode);
-    setIsLoggedIn(true);
-    // For demo purposes, setting a team name based on the code
-    setTeamName('Team Awesome');
-    setShowLoginModal(false);
-    setTeamCode('');
+    if (!teamCode.trim()) {
+        alert('Please enter a team code');
+        return;
+    }
+
+    try {
+        const result = await verifyTeamCode(teamCode);
+        
+        if (result.success && result.team) {
+            setIsLoggedIn(true);
+            const teamName = result.team.team_name || 'Team Missing';
+            setTeamName(teamName);
+            setLastActivity(Date.now());
+            // Store login state in localStorage
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('teamName', teamName);
+            localStorage.setItem('lastActivity', Date.now().toString());
+            setShowLoginModal(false);
+            setTeamCode('');
+        } else {
+            alert(result.error || 'Invalid team code');
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        alert('Failed to verify team code. Please try again.');
+    }
   };
 
   const handleSpotifyLogin = async () => {
@@ -180,6 +261,10 @@ export default function Home() {
 
       const data = await res.json();
       console.log('Spotify API test successful:', data);
+      // Store the token in localStorage after successful test
+      if (spotifyAccessToken) {
+        localStorage.setItem('spotifyAccessToken', spotifyAccessToken);
+      }
       alert('Successfully connected to Spotify API!');
     } catch (error) {
       console.error('Error testing Spotify connection:', error);
@@ -192,6 +277,14 @@ export default function Home() {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setTeamName('');
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('teamName');
+    localStorage.removeItem('lastActivity');
   };
 
   return (
@@ -522,15 +615,24 @@ export default function Home() {
                 }}>
                   {index + 1}.
                 </span>
-                <p style={{
-                  fontSize: '1.5rem',
-                  fontWeight: 'bold',
-                  color: '#000',
-                  textAlign: 'left',
-                  margin: 0
-                }}>
-                  {track.name} - {track.artists[0].name}
-                </p>
+                <div>
+                  <p style={{
+                    fontSize: '1.5rem',
+                    fontWeight: 'bold',
+                    color: '#000',
+                    textAlign: 'left',
+                    margin: 0
+                  }}>
+                    {track.name} - {track.artists[0].name}
+                  </p>
+                  <p style={{
+                    fontSize: '1rem',
+                    color: '#666',
+                    margin: '0.25rem 0 0 0'
+                  }}>
+                    Added by: {track.team_name}
+                  </p>
+                </div>
               </div>
               <span style={{
                 fontSize: '1.2rem',
@@ -543,7 +645,28 @@ export default function Home() {
             </div>
           ))
         )}
+        
       </div>
+      {isLoggedIn && (
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#ff4444',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              marginTop: '1rem',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#cc0000'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ff4444'}
+          >
+            Logout
+          </button>
+        )}
     </div>
   );
 } 
