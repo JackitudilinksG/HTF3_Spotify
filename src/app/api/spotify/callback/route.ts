@@ -11,7 +11,15 @@ function getBaseUrl(request: Request) {
     throw new Error('No host header found');
   }
 
-  // Always use https in production
+  // Check if we're in a Vercel preview deployment
+  if (host.includes('vercel.app')) {
+    // Extract the deployment ID from the host
+    const deploymentId = host.split('-')[1];
+    // Construct the full preview URL
+    return `https://htfy-${deploymentId}-jackitudilinksgs-projects.vercel.app`;
+  }
+
+  // For production or other environments
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   return `${protocol}://${host}`;
 }

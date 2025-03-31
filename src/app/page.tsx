@@ -222,7 +222,12 @@ export default function Home() {
 
   const handleSpotifyLogin = async () => {
     try {
+      // Clear any cached Spotify data
+      localStorage.removeItem('spotifyAccessToken');
+      
       console.log('Starting Spotify login process...');
+      console.log('Current window location:', window.location.href);
+      
       const res = await fetch('/api/spotify/auth');
       const data = await res.json();
       
@@ -232,7 +237,12 @@ export default function Home() {
         return;
       }
 
-      console.log('Got auth URL, redirecting to Spotify...');
+      console.log('Auth URL received:', data.url);
+      // Parse the URL to check the redirect URI
+      const authUrl = new URL(data.url);
+      const redirectUri = authUrl.searchParams.get('redirect_uri');
+      console.log('Redirect URI in auth URL:', redirectUri);
+
       window.location.href = data.url;
     } catch (error) {
       console.error('Error during Spotify login:', error);

@@ -11,7 +11,15 @@ function getBaseUrl(request: Request) {
     throw new Error('No host header found');
   }
 
-  // Always use https in production
+  // Check if we're in a Vercel preview deployment
+  if (host.includes('vercel.app')) {
+    // Extract the deployment ID from the host
+    const deploymentId = host.split('-')[1];
+    // Construct the full preview URL
+    return `https://htfy-${deploymentId}-jackitudilinksgs-projects.vercel.app`;
+  }
+
+  // For production or other environments
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   return `${protocol}://${host}`;
 }
@@ -24,8 +32,10 @@ export async function GET(request: Request) {
     const baseUrl = getBaseUrl(request);
     const redirectUri = `${baseUrl}/api/spotify/callback`;
 
-    console.log('Generating auth URL with redirect URI:', redirectUri);
-    console.log('Using client ID:', SPOTIFY_CLIENT_ID?.substring(0, 5) + '...');
+    console.log('Generating auth URL with:');
+    console.log('Base URL:', baseUrl);
+    console.log('Redirect URI:', redirectUri);
+    console.log('Client ID:', SPOTIFY_CLIENT_ID?.substring(0, 5) + '...');
     console.log('Environment:', process.env.NODE_ENV);
     console.log('Host:', request.headers.get('host'));
 
@@ -37,7 +47,10 @@ export async function GET(request: Request) {
       state: state,
     });
 
-    return NextResponse.json({ url: `https://accounts.spotify.com/authorize?${params.toString()}` });
+    const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;
+    console.log('Final auth URL:', authUrl);
+
+    return NextResponse.json({ url: authUrl });
   } catch (error) {
     console.error('Error in auth route:', error);
     return NextResponse.json({ error: 'Failed to generate auth URL' }, { status: 500 });
