@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     const state = Math.random().toString(36).substring(7);
 
     const baseUrl = getBaseUrl(request);
-    const redirectUri = `${baseUrl}/api/spotify/callback`;
+    const redirectUri = `https://htfy4.vercel.app/api/spotify/callback`;
 
     console.log('Generating auth URL with:');
     console.log('Base URL:', baseUrl);
