@@ -53,6 +53,8 @@ export async function GET(request: Request) {
         grant_type: 'authorization_code',
         code,
         redirect_uri: `${getBaseUrl(request)}/api/spotify/callback`,
+        client_id: SPOTIFY_CLIENT_ID!,
+        client_secret: SPOTIFY_CLIENT_SECRET!,
       }),
     });
 
