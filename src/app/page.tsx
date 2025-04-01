@@ -147,6 +147,7 @@ export default function Home() {
 
     try {
       console.log('Searching for:', text);
+      console.log('Team name:', teamName);
       // Search for tracks
       const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(text)}&access_token=${spotifyAccessToken}`);
       const data = await res.json();
@@ -156,8 +157,9 @@ export default function Home() {
       if (data.error) {
         console.error('Search error:', data.error);
         if (data.error.includes('expired')) {
-          // Clear the expired token
-          localStorage.removeItem('spotifyAccessToken');
+          // Clear the expired token for this team
+          const tokenKey = `spotifyAccessToken_${teamName}`;
+          localStorage.removeItem(tokenKey);
           setSpotifyAccessToken(null);
           alert('Your Spotify session has expired. Please reconnect to Spotify.');
           return;
