@@ -29,7 +29,7 @@ function getBaseUrl(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const scope = 'user-read-private user-read-email playlist-read-private playlist-read-collaborative';
+    const scope = 'user-read-private user-read-email playlist-read-private playlist-read-collaborative user-read-playback-state';
     const state = Math.random().toString(36).substring(7);
 
     const baseUrl = getBaseUrl(request);
