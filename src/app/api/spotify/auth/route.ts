@@ -5,7 +5,25 @@ const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 
 // Get the base URL from the request
 function getBaseUrl(request: Request) {
-  // For local development, always use localhost:3000
+  const host = request.headers.get('host');
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  
+  // If we're in development, use localhost
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:3000';
+  }
+  
+  // If we have a host header, use it
+  if (host) {
+    return `${protocol}://${host}`;
+  }
+  
+  // Fallback to the Vercel URL if available
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  
+  // Final fallback
   return 'https://htfy.vercel.app';
 }
 
@@ -23,6 +41,7 @@ export async function GET(request: Request) {
     console.log('Client ID:', SPOTIFY_CLIENT_ID?.substring(0, 5) + '...');
     console.log('Environment:', process.env.NODE_ENV);
     console.log('Host:', request.headers.get('host'));
+    console.log('Vercel URL:', process.env.VERCEL_URL);
 
     const params = new URLSearchParams({
       response_type: 'code',
