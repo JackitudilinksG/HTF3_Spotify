@@ -269,8 +269,28 @@ export default function Home() {
         },
       });
       
+      // Log the raw response for debugging
+      console.log('Response status:', res.status);
+      console.log('Response headers:', Object.fromEntries(res.headers.entries()));
+      
+      // Try to get the response text first
+      const responseText = await res.text();
+      console.log('Raw response:', responseText);
+      
+      let errorData;
+      try {
+        errorData = JSON.parse(responseText);
+      } catch (e) {
+        // If it's not JSON, create a simple error object
+        errorData = {
+          error: {
+            message: responseText || 'Unknown error',
+            status: res.status
+          }
+        };
+      }
+      
       if (!res.ok) {
-        const errorData = await res.json();
         console.error('Spotify API test failed:', errorData);
         if (errorData.error?.message?.includes('expired')) {
           // Clear the expired token and reset UI
@@ -283,7 +303,8 @@ export default function Home() {
         return;
       }
 
-      const data = await res.json();
+      // Parse the successful response
+      const data = JSON.parse(responseText);
       console.log('Spotify API test successful:', data);
       // Store the token in localStorage after successful test
       if (spotifyAccessToken) {
