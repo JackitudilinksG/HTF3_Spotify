@@ -44,6 +44,9 @@ export async function GET(request: Request) {
     console.log('Environment:', process.env.NODE_ENV);
     console.log('Host:', request.headers.get('host'));
     console.log('Vercel URL:', process.env.VERCEL_URL);
+    console.log('Protocol:', process.env.NODE_ENV === 'development' ? 'http' : 'https');
+    console.log('Full request URL:', request.url);
+    console.log('Request headers:', Object.fromEntries(request.headers.entries()));
 
     const params = new URLSearchParams({
       response_type: 'code',
