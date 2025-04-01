@@ -240,11 +240,15 @@ export default function Home() {
 
   const handleSpotifyLogin = async () => {
     try {
-      // Clear any cached Spotify data
-      localStorage.removeItem('spotifyAccessToken');
+      // Clear any cached Spotify data for this team
+      if (teamName) {
+        const tokenKey = `spotifyAccessToken_${teamName}`;
+        localStorage.removeItem(tokenKey);
+      }
       
       console.log('Starting Spotify login process...');
       console.log('Current window location:', window.location.href);
+      console.log('Team name:', teamName);
       
       const res = await fetch('/api/spotify/auth');
       const data = await res.json();
@@ -271,7 +275,14 @@ export default function Home() {
   // Add a test function to check Spotify API
   const testSpotifyConnection = async () => {
     try {
+      if (!teamName) {
+        console.error('No team name available');
+        alert('Please login with your team code first');
+        return;
+      }
+
       console.log('Testing Spotify API connection...');
+      console.log('Team name:', teamName);
       console.log('Using access token:', spotifyAccessToken?.substring(0, 10) + '...');
       
       // First, try to get the user's profile to verify the token
@@ -291,8 +302,9 @@ export default function Home() {
       
       if (!profileRes.ok) {
         console.error('Profile check failed:', profileText);
-        // Clear the invalid token
-        localStorage.removeItem('spotifyAccessToken');
+        // Clear the invalid token for this team
+        const tokenKey = `spotifyAccessToken_${teamName}`;
+        localStorage.removeItem(tokenKey);
         setSpotifyAccessToken(null);
         alert('Your Spotify connection has expired. Please reconnect to Spotify.');
         return;
@@ -329,8 +341,9 @@ export default function Home() {
       if (!res.ok) {
         console.error('Spotify API test failed:', errorData);
         if (errorData.error?.message?.includes('expired')) {
-          // Clear the expired token and reset UI
-          localStorage.removeItem('spotifyAccessToken');
+          // Clear the expired token for this team
+          const tokenKey = `spotifyAccessToken_${teamName}`;
+          localStorage.removeItem(tokenKey);
           setSpotifyAccessToken(null);
           alert('Your Spotify session has expired. Please reconnect to Spotify.');
           return;
@@ -342,9 +355,11 @@ export default function Home() {
       // Parse the successful response
       const data = JSON.parse(responseText);
       console.log('Spotify API test successful:', data);
+      
       // Store the token in localStorage after successful test
       if (spotifyAccessToken) {
-        localStorage.setItem('spotifyAccessToken', spotifyAccessToken);
+        const tokenKey = `spotifyAccessToken_${teamName}`;
+        localStorage.setItem(tokenKey, spotifyAccessToken);
       }
       alert('Successfully connected to Spotify API!');
     } catch (error) {
