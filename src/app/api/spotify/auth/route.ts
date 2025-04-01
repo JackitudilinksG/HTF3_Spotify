@@ -15,7 +15,9 @@ function getBaseUrl(request: Request) {
   
   // If we have a host header, use it
   if (host) {
-    return `${protocol}://${host}`;
+    // Remove any port numbers from the host
+    const cleanHost = host.split(':')[0];
+    return `${protocol}://${cleanHost}`;
   }
   
   // Fallback to the Vercel URL if available

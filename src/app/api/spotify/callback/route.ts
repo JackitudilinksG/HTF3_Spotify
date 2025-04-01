@@ -32,6 +32,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
     const state = searchParams.get('state');
+    const error = searchParams.get('error');
+
+    // Check for Spotify error response
+    if (error) {
+      console.error('Spotify authorization error:', error);
+      return NextResponse.redirect(new URL(`/?error=spotify_auth_error&message=${error}`, request.url));
+    }
 
     if (!code || !state) {
       console.error('Missing code or state in callback');
@@ -63,9 +70,23 @@ export async function GET(request: Request) {
     });
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json();
-      console.error('Token exchange failed:', errorData);
-      return NextResponse.redirect(new URL('/?error=token_exchange_failed', request.url));
+      const errorText = await tokenResponse.text();
+      console.error('Token exchange failed:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorText
+      });
+      
+      let errorMessage = 'token_exchange_failed';
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // If we can't parse the error as JSON, use the raw text
+        errorMessage = errorText;
+      }
+      
+      return NextResponse.redirect(new URL(`/?error=${encodeURIComponent(errorMessage)}`, request.url));
     }
 
     const data = await tokenResponse.json();

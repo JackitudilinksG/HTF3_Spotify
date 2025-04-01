@@ -58,18 +58,29 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('access_token');
     if (token) {
+      // Store token with team name as key
+      const tokenKey = `spotifyAccessToken_${teamName}`;
       setSpotifyAccessToken(token);
-      localStorage.setItem('spotifyAccessToken', token);
+      localStorage.setItem(tokenKey, token);
       // Clean up the URL
       window.history.replaceState({}, '', '/');
     } else {
-      // Check localStorage for existing token
-      const storedToken = localStorage.getItem('spotifyAccessToken');
+      // Check localStorage for existing token using team name
+      const tokenKey = `spotifyAccessToken_${teamName}`;
+      const storedToken = localStorage.getItem(tokenKey);
       if (storedToken) {
         setSpotifyAccessToken(storedToken);
       }
     }
-  }, []);
+  }, [teamName]); // Add teamName as dependency
+
+  // Update token storage when team name changes
+  useEffect(() => {
+    if (spotifyAccessToken && teamName) {
+      const tokenKey = `spotifyAccessToken_${teamName}`;
+      localStorage.setItem(tokenKey, spotifyAccessToken);
+    }
+  }, [teamName, spotifyAccessToken]);
 
   // Check for stored login state on mount
   useEffect(() => {
@@ -350,8 +361,13 @@ export default function Home() {
   };
 
   const handleLogout = () => {
+    if (teamName) {
+      const tokenKey = `spotifyAccessToken_${teamName}`;
+      localStorage.removeItem(tokenKey);
+    }
     setIsLoggedIn(false);
     setTeamName('');
+    setSpotifyAccessToken(null);
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('teamName');
     localStorage.removeItem('lastActivity');
