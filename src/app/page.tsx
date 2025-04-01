@@ -263,6 +263,31 @@ export default function Home() {
       console.log('Testing Spotify API connection...');
       console.log('Using access token:', spotifyAccessToken?.substring(0, 10) + '...');
       
+      // First, try to get the user's profile to verify the token
+      const profileRes = await fetch('https://api.spotify.com/v1/me', {
+        headers: {
+          'Authorization': `Bearer ${spotifyAccessToken}`,
+        },
+      });
+      
+      // Log the raw response for debugging
+      console.log('Profile response status:', profileRes.status);
+      console.log('Profile response headers:', Object.fromEntries(profileRes.headers.entries()));
+      
+      // Try to get the response text first
+      const profileText = await profileRes.text();
+      console.log('Raw profile response:', profileText);
+      
+      if (!profileRes.ok) {
+        console.error('Profile check failed:', profileText);
+        // Clear the invalid token
+        localStorage.removeItem('spotifyAccessToken');
+        setSpotifyAccessToken(null);
+        alert('Your Spotify connection has expired. Please reconnect to Spotify.');
+        return;
+      }
+
+      // If profile check succeeds, try the new releases endpoint
       const res = await fetch('https://api.spotify.com/v1/browse/new-releases', {
         headers: {
           'Authorization': `Bearer ${spotifyAccessToken}`,
@@ -270,12 +295,12 @@ export default function Home() {
       });
       
       // Log the raw response for debugging
-      console.log('Response status:', res.status);
-      console.log('Response headers:', Object.fromEntries(res.headers.entries()));
+      console.log('New releases response status:', res.status);
+      console.log('New releases response headers:', Object.fromEntries(res.headers.entries()));
       
       // Try to get the response text first
       const responseText = await res.text();
-      console.log('Raw response:', responseText);
+      console.log('Raw new releases response:', responseText);
       
       let errorData;
       try {
