@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     const state = Math.random().toString(36).substring(7);
 
     const baseUrl = getBaseUrl(request);
-    const redirectUri = `${baseUrl}/api/spotify/callback`;
+    const redirectUri = `https://htfy4.vercel.app/api/spotify/callback`;
 
     console.log('Generating auth URL with:');
     console.log('Base URL:', baseUrl);
@@ -44,9 +44,6 @@ export async function GET(request: Request) {
     console.log('Environment:', process.env.NODE_ENV);
     console.log('Host:', request.headers.get('host'));
     console.log('Vercel URL:', process.env.VERCEL_URL);
-    console.log('Protocol:', process.env.NODE_ENV === 'development' ? 'http' : 'https');
-    console.log('Full request URL:', request.url);
-    console.log('Request headers:', Object.fromEntries(request.headers.entries()));
 
     const params = new URLSearchParams({
       response_type: 'code',

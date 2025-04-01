@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: `${getBaseUrl(request)}/api/spotify/callback`,
+        redirect_uri: `https://htfy4.vercel.app/api/spotify/callback`,
         client_id: SPOTIFY_CLIENT_ID!,
         client_secret: SPOTIFY_CLIENT_SECRET!,
       }),
