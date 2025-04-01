@@ -272,6 +272,13 @@ export default function Home() {
       if (!res.ok) {
         const errorData = await res.json();
         console.error('Spotify API test failed:', errorData);
+        if (errorData.error?.message?.includes('expired')) {
+          // Clear the expired token and reset UI
+          localStorage.removeItem('spotifyAccessToken');
+          setSpotifyAccessToken(null);
+          alert('Your Spotify session has expired. Please reconnect to Spotify.');
+          return;
+        }
         alert(`Spotify API test failed: ${errorData.error?.message || 'Unknown error'}`);
         return;
       }
