@@ -26,6 +26,7 @@ export default function Home() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
+  const POLLING_INTERVAL = 3000; // 3 seconds
 
   // Check for session timeout
   useEffect(() => {
@@ -89,6 +90,27 @@ export default function Home() {
       }
     }
   }, []);
+
+  // Add this useEffect after the other useEffect hooks
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout;
+
+    // Only start polling if we're logged in
+    if (isLoggedIn) {
+      // Initial fetch
+      fetchQueue();
+
+      // Set up polling interval
+      pollInterval = setInterval(fetchQueue, POLLING_INTERVAL);
+    }
+
+    // Cleanup function to clear the interval when component unmounts or user logs out
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [isLoggedIn]); // Only re-run if login state changes
 
   // Function to fetch the current queue from the API
   const fetchQueue = async () => {
@@ -172,31 +194,55 @@ export default function Home() {
   };
 
   const handleAddTrack = async (track: SpotifyTrack) => {
-    // Add team name to the track before sending
-    const trackWithTeam = {
-      ...track,
-      team_name: teamName
-    };
+    try {
+      // Add team name to the track before sending
+      const trackWithTeam = {
+        ...track,
+        team_name: teamName
+      };
 
-    // Send a POST request to add the track
-    await fetch('/api/queue', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ track: trackWithTeam }),
-    });
+      // Send a POST request to add the track
+      const response = await fetch('/api/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track: trackWithTeam }),
+      });
 
-    // Clear the input and update the queue
-    setText('');
-    setShowSearchResults(false);
-    setSearchResults([]);
-    fetchQueue();
+      if (!response.ok) {
+        throw new Error('Failed to add track');
+      }
+
+      // Clear the input and search results
+      setText('');
+      setShowSearchResults(false);
+      setSearchResults([]);
+
+      // Update the queue immediately with the new track
+      const data = await response.json();
+      setQueue(data.queue);
+    } catch (error) {
+      console.error('Error adding track:', error);
+      alert('Failed to add track. Please try again.');
+    }
   };
 
   const handleClear = async () => {
-    await fetch('/api/queue', {
-      method: 'DELETE',
-    });
-    fetchQueue();
+    try {
+      const response = await fetch('/api/queue', {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to clear queue');
+      }
+
+      // Update the queue immediately
+      const data = await response.json();
+      setQueue(data.queue);
+    } catch (error) {
+      console.error('Error clearing queue:', error);
+      alert('Failed to clear queue. Please try again.');
+    }
   };
 
   const handleLogin = async (e: FormEvent) => {
