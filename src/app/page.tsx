@@ -144,6 +144,13 @@ export default function Home() {
       
       if (data.error) {
         console.error('Search error:', data.error);
+        if (data.error.includes('expired')) {
+          // Clear the expired token
+          localStorage.removeItem('spotifyAccessToken');
+          setSpotifyAccessToken(null);
+          alert('Your Spotify session has expired. Please reconnect to Spotify.');
+          return;
+        }
         alert('Error searching for songs. Please try again.');
         return;
       }
