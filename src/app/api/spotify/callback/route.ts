@@ -31,30 +31,19 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
-    const state = searchParams.get('state');
     const error = searchParams.get('error');
 
-    // Check for Spotify error response
     if (error) {
       console.error('Spotify authorization error:', error);
-      return NextResponse.redirect(new URL(`/?error=spotify_auth_error&message=${error}`, request.url));
+      return NextResponse.redirect(`${getBaseUrl(request)}?error=spotify_auth_failed`);
     }
 
-    if (!code || !state) {
-      console.error('Missing code or state in callback');
-      return NextResponse.redirect(new URL('/?error=missing_params', request.url));
+    if (!code) {
+      console.error('No code received from Spotify');
+      return NextResponse.redirect(`${getBaseUrl(request)}?error=no_code`);
     }
 
-    const baseUrl = getBaseUrl(request);
-    const redirectUri = `${baseUrl}/api/spotify/callback`;
-
-    console.log('Exchanging code for access token...');
-    console.log('Using redirect URI:', redirectUri);
-    console.log('Using client ID:', SPOTIFY_CLIENT_ID?.substring(0, 5) + '...');
-    console.log('Environment:', process.env.NODE_ENV);
-    console.log('Host:', request.headers.get('host'));
-    console.log('Vercel URL:', process.env.VERCEL_URL);
-
+    // Exchange code for access token
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
@@ -63,9 +52,7 @@ export async function GET(request: Request) {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: redirectUri,
-        client_id: SPOTIFY_CLIENT_ID!,
-        client_secret: SPOTIFY_CLIENT_SECRET!,
+        redirect_uri: `${getBaseUrl(request)}/api/spotify/callback`,
       }),
     });
 
@@ -76,26 +63,16 @@ export async function GET(request: Request) {
         statusText: tokenResponse.statusText,
         error: errorText
       });
-      
-      let errorMessage = 'token_exchange_failed';
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.error || errorMessage;
-      } catch (e) {
-        // If we can't parse the error as JSON, use the raw text
-        errorMessage = errorText;
-      }
-      
-      return NextResponse.redirect(new URL(`/?error=${encodeURIComponent(errorMessage)}`, request.url));
+      return NextResponse.redirect(`${getBaseUrl(request)}?error=token_exchange_failed`);
     }
 
     const data = await tokenResponse.json();
-    console.log('Token exchange successful');
-    
+    const accessToken = data.access_token;
+
     // Redirect back to the main page with the access token
-    return NextResponse.redirect(new URL(`/?access_token=${data.access_token}`, request.url));
+    return NextResponse.redirect(`${getBaseUrl(request)}?access_token=${accessToken}`);
   } catch (error) {
-    console.error('Error in callback:', error);
-    return NextResponse.redirect(new URL('/?error=auth_failed', request.url));
+    console.error('Callback error:', error);
+    return NextResponse.redirect(`${getBaseUrl(request)}?error=callback_error`);
   }
 } 
