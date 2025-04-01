@@ -6,6 +6,7 @@ export async function GET(request: Request) {
   const accessToken = searchParams.get('access_token');
 
   if (!query || !accessToken) {
+    console.error('Missing parameters:', { query, hasToken: !!accessToken });
     return NextResponse.json({ error: 'Missing query or access token' }, { status: 400 });
   }
 
@@ -24,8 +25,12 @@ export async function GET(request: Request) {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Spotify API error:', errorData);
-      return NextResponse.json({ error: 'Spotify API error' }, { status: response.status });
+      console.error('Spotify API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
+      return NextResponse.json({ error: `Spotify API error: ${errorData.error?.message || response.statusText}` }, { status: response.status });
     }
 
     const data = await response.json();
@@ -33,13 +38,13 @@ export async function GET(request: Request) {
 
     // Check if we have tracks in the response
     if (!data.tracks || !data.tracks.items) {
-      console.error('No tracks found in response');
+      console.error('No tracks found in response:', data);
       return NextResponse.json({ tracks: { items: [] } });
     }
 
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error searching Spotify:', error);
-    return NextResponse.json({ error: 'Failed to search Spotify' }, { status: 500 });
+    return NextResponse.json({ error: `Failed to search Spotify: ${error instanceof Error ? error.message : 'Unknown error'}` }, { status: 500 });
   }
 } 
