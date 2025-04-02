@@ -27,9 +27,6 @@ export default function Home() {
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
   const POLLING_INTERVAL = 3000; // 3 seconds
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminCode, setAdminCode] = useState('');
-  const [showAdminModal, setShowAdminModal] = useState(false);
   const [currentlyPlaying, setCurrentlyPlaying] = useState<SpotifyTrack | null>(null);
 
   // Check for session timeout
@@ -75,7 +72,9 @@ export default function Home() {
         const params = new URLSearchParams(window.location.search);
         const token = params.get('access_token');
         if (token) {
-          const tokenKey = `spotifyAccessToken_${storedTeamName}`;
+          // For admin, always use 'ADMIN' as the team name
+          const currentTeamName = storedTeamName === 'ADMIN' ? 'ADMIN' : storedTeamName;
+          const tokenKey = `spotifyAccessToken_${currentTeamName}`;
           setSpotifyAccessToken(token);
           localStorage.setItem(tokenKey, token);
           // Clean up the URL
@@ -257,6 +256,21 @@ export default function Home() {
     }
 
     try {
+        // Check if the code is an admin code
+        if (teamCode === 'HTF3_ADMIN') {
+            setIsLoggedIn(true);
+            setTeamName('ADMIN');
+            setLastActivity(Date.now());
+            // Store login state in localStorage
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('teamName', 'ADMIN');
+            localStorage.setItem('lastActivity', Date.now().toString());
+            setShowLoginModal(false);
+            setTeamCode('');
+            return;
+        }
+
+        // If not admin code, proceed with team code verification
         const result = await verifyTeamCode(teamCode);
         
         if (result.success && result.team) {
@@ -312,7 +326,9 @@ export default function Home() {
       console.log('Redirect URI in auth URL:', redirectUri);
 
       // Store the current team name in sessionStorage before redirecting
-      sessionStorage.setItem('pendingSpotifyTeam', teamName);
+      // For admin, always use 'ADMIN' as the team name
+      const currentTeamName = teamName === 'ADMIN' ? 'ADMIN' : teamName;
+      sessionStorage.setItem('pendingSpotifyTeam', currentTeamName);
       window.location.href = data.url;
     } catch (error) {
       console.error('Error during Spotify login:', error);
@@ -436,32 +452,8 @@ export default function Home() {
     localStorage.removeItem('lastActivity');
   };
 
-  const handleAdminLogin = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!adminCode.trim()) {
-      alert('Please enter an admin code');
-      return;
-    }
-
-    try {
-      // In a real app, you would verify this against your backend
-      if (adminCode === 'HTF3_ADMIN') { // Replace with your actual admin code
-        setIsAdmin(true);
-        setShowAdminModal(false);
-        setAdminCode('');
-        // Start polling for queue updates more frequently when admin
-        setPollingInterval(1000); // Poll every second when admin
-      } else {
-        alert('Invalid admin code');
-      }
-    } catch (error) {
-      console.error('Admin login error:', error);
-      alert('Failed to verify admin code. Please try again.');
-    }
-  };
-
   const handlePlayNext = async () => {
-    if (!isAdmin || !spotifyAccessToken || queue.length === 0) return;
+    if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
     try {
       const nextTrack = queue[0];
@@ -502,7 +494,7 @@ export default function Home() {
   };
 
   const handleQueueUpdate = async (newQueue: SpotifyTrack[]) => {
-    if (!isAdmin) return;
+    if (!isLoggedIn) return;
     
     try {
       await fetch('/api/queue', {
@@ -895,7 +887,7 @@ export default function Home() {
             Logout
           </button>
         )}
-      {isAdmin ? (
+      {isLoggedIn && teamName === 'ADMIN' ? (
         <div style={{
           display: 'flex',
           gap: '1rem',
@@ -929,98 +921,7 @@ export default function Home() {
             </div>
           )}
         </div>
-      ) : (
-        <button
-          onClick={() => setShowAdminModal(true)}
-          style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#080A2E',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '1rem',
-            marginTop: '1rem'
-          }}
-        >
-          Become Admin
-        </button>
-      )}
-      {showAdminModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: '#DDE3FF',
-            padding: '2rem',
-            borderRadius: '8px',
-            width: '400px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-          }}>
-            <h2 style={{
-              color: '#080A2E',
-              marginBottom: '1.5rem',
-              textAlign: 'center'
-            }}>Enter Admin Code</h2>
-            <form onSubmit={handleAdminLogin}>
-              <input
-                type="password"
-                value={adminCode}
-                onChange={(e) => setAdminCode(e.target.value)}
-                placeholder="Enter admin code"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  marginBottom: '1rem',
-                  borderRadius: '4px',
-                  border: '1px solid #ccc'
-                }}
-              />
-              <div style={{
-                display: 'flex',
-                gap: '1rem',
-                justifyContent: 'flex-end'
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setShowAdminModal(false)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#ccc',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#080A2E',
-                    color: '#DDE3FF',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Login
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 } 
