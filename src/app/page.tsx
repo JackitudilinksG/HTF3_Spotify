@@ -72,9 +72,7 @@ export default function Home() {
         const params = new URLSearchParams(window.location.search);
         const token = params.get('access_token');
         if (token) {
-          // For admin, always use 'ADMIN' as the team name
-          const currentTeamName = storedTeamName === 'ADMIN' ? 'ADMIN' : storedTeamName;
-          const tokenKey = `spotifyAccessToken_${currentTeamName}`;
+          const tokenKey = `spotifyAccessToken_${storedTeamName}`;
           setSpotifyAccessToken(token);
           localStorage.setItem(tokenKey, token);
           // Clean up the URL
