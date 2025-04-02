@@ -34,6 +34,9 @@ export default function Home() {
   const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
   const POLLING_INTERVAL = 3000; // 3 seconds
   const [currentlyPlaying, setCurrentlyPlaying] = useState<SpotifyTrack | null>(null);
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false);
+  const [activeDevices, setActiveDevices] = useState<any[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
 
   // Check for session timeout
   useEffect(() => {
@@ -465,7 +468,33 @@ export default function Home() {
   const handlePlayNext = async () => {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
+    // Only allow HTF3_ADMIN1 to control playback
+    if (teamName !== 'HTF3_ADMIN1') {
+      alert('Only the admin device can control playback');
+      return;
+    }
+
     try {
+      // First, get active devices
+      await getActiveDevices();
+      
+      // If no active device, try to transfer playback to the first available device
+      if (!selectedDevice && activeDevices.length > 0) {
+        const deviceId = activeDevices[0].id;
+        await fetch('https://api.spotify.com/v1/me/player', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${spotifyAccessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            device_ids: [deviceId],
+            play: false,
+          }),
+        });
+        setSelectedDevice(deviceId);
+      }
+
       const nextTrack = queue[0];
       
       // Call Spotify API to play the track
@@ -499,7 +528,7 @@ export default function Home() {
       });
     } catch (error) {
       console.error('Error playing track:', error);
-      alert('Failed to play track. Please try again.');
+      alert('Failed to play track. Please make sure you have an active Spotify device.');
     }
   };
 
@@ -520,6 +549,12 @@ export default function Home() {
   // Add this new function to handle skipping the current song
   const handleSkip = async () => {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
+
+    // Only allow HTF3_ADMIN1 to control playback
+    if (teamName !== 'HTF3_ADMIN1') {
+      alert('Only the admin device can control playback');
+      return;
+    }
 
     try {
       // Call Spotify API to skip the current track
@@ -554,6 +589,52 @@ export default function Home() {
   const getSpotifyTrackUrl = (track: SpotifyTrack) => {
     return `https://open.spotify.com/track/${track.id}`;
   };
+
+  // Add click outside handler to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.team-dropdown')) {
+        setShowTeamDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Add this new function to get active devices
+  const getActiveDevices = async () => {
+    try {
+      const response = await fetch('https://api.spotify.com/v1/me/player/devices', {
+        headers: {
+          'Authorization': `Bearer ${spotifyAccessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get devices');
+      }
+
+      const data = await response.json();
+      setActiveDevices(data.devices);
+      
+      // If there's an active device, select it
+      const activeDevice = data.devices.find((device: any) => device.is_active);
+      if (activeDevice) {
+        setSelectedDevice(activeDevice.id);
+      }
+    } catch (error) {
+      console.error('Error getting devices:', error);
+    }
+  };
+
+  // Add this useEffect to check for active devices when Spotify is connected
+  useEffect(() => {
+    if (spotifyAccessToken) {
+      getActiveDevices();
+    }
+  }, [spotifyAccessToken]);
 
   return (
     <div style={{ 
@@ -700,15 +781,94 @@ export default function Home() {
             gap: '2rem'
           }}>
             {isLoggedIn ? (
-              <span
-                style={{
-                  color: '#DDE3FF',
-                  textDecoration: 'none',
-                  fontSize: '1.1rem'
-                }}
-              >
-                {teamName}
-              </span>
+              <div style={{ position: 'relative' }}>
+                <span
+                  onClick={() => setShowTeamDropdown(!showTeamDropdown)}
+                  style={{
+                    color: '#DDE3FF',
+                    textDecoration: 'none',
+                    fontSize: '1.1rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  {teamName}
+                  <svg 
+                    width="12" 
+                    height="12" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    xmlns="http://www.w3.org/2000/svg"
+                    style={{
+                      transform: showTeamDropdown ? 'rotate(180deg)' : 'none',
+                      transition: 'transform 0.2s'
+                    }}
+                  >
+                    <path 
+                      d="M6 9L12 15L18 9" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                {showTeamDropdown && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: '0',
+                    marginTop: '0.5rem',
+                    backgroundColor: 'rgba(8, 10, 46, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '8px',
+                    padding: '0.5rem',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    zIndex: 1000
+                  }}>
+                    <button
+                      onClick={handleLogout}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        backgroundColor: 'transparent',
+                        color: '#ff4444',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        width: '100%',
+                        textAlign: 'left',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 68, 68, 0.1)'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <svg 
+                        width="16" 
+                        height="16" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path 
+                          d="M17 16L21 12M21 12L17 8M21 12H7M7 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H7" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <a 
                 href="#queue-form"
@@ -996,64 +1156,91 @@ export default function Home() {
           ))
         )}
       </div>
-      {isLoggedIn && (
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#ff4444',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              marginTop: '1rem',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#cc0000'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ff4444'}
-          >
-            Logout
-          </button>
-        )}
-      {isLoggedIn && teamName === 'ADMIN' ? (
+      {isLoggedIn && teamName === 'HTF3_ADMIN1' ? (
         <div style={{
           display: 'flex',
+          flexDirection: 'column',
           gap: '1rem',
-          marginTop: '1rem'
+          marginTop: '1rem',
+          padding: '1rem',
+          backgroundColor: 'rgba(8, 10, 46, 0.7)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '8px',
+          width: '100%',
+          maxWidth: '800px'
         }}>
-          <button
-            onClick={handlePlayNext}
-            disabled={!currentlyPlaying && queue.length === 0}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#4CAF50',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
-              fontSize: '1rem',
-              opacity: queue.length === 0 ? 0.5 : 1
-            }}
-          >
-            Play Next Song
-          </button>
-          <button
-            onClick={handleSkip}
-            disabled={queue.length === 0}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#FF9800',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
-              fontSize: '1rem',
-              opacity: queue.length === 0 ? 0.5 : 1
-            }}
-          >
-            Skip Current Song
-          </button>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button
+              onClick={handlePlayNext}
+              disabled={!currentlyPlaying && queue.length === 0}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#4CAF50',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                opacity: queue.length === 0 ? 0.5 : 1
+              }}
+            >
+              Play Next Song
+            </button>
+            <button
+              onClick={handleSkip}
+              disabled={queue.length === 0}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#FF9800',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                opacity: queue.length === 0 ? 0.5 : 1
+              }}
+            >
+              Skip Current Song
+            </button>
+          </div>
+          
+          {activeDevices.length > 0 && (
+            <div style={{ color: '#DDE3FF' }}>
+              <h3 style={{ marginBottom: '0.5rem' }}>Active Devices:</h3>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                {activeDevices.map((device) => (
+                  <div
+                    key={device.id}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: device.is_active ? '#4CAF50' : 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onClick={() => {
+                      setSelectedDevice(device.id);
+                      // Transfer playback to selected device
+                      fetch('https://api.spotify.com/v1/me/player', {
+                        method: 'PUT',
+                        headers: {
+                          'Authorization': `Bearer ${spotifyAccessToken}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          device_ids: [device.id],
+                          play: false,
+                        }),
+                      });
+                    }}
+                  >
+                    {device.name}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           {currentlyPlaying && (
             <div style={{
               padding: '0.75rem 1.5rem',
