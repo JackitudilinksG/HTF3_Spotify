@@ -625,7 +625,7 @@ export default function Home() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Add this new function to get active devices
+  // Update the getActiveDevices function
   const getActiveDevices = async () => {
     try {
       const response = await fetch('https://api.spotify.com/v1/me/player/devices', {
@@ -646,6 +646,9 @@ export default function Home() {
       const activeDevice = data.devices.find((device: any) => device.is_active);
       if (activeDevice) {
         setSelectedDevice(activeDevice.id);
+      } else if (data.devices.length > 0) {
+        // If no active device but we have devices, select the first one
+        setSelectedDevice(data.devices[0].id);
       }
     } catch (error) {
       console.error('Error getting devices:', error);
