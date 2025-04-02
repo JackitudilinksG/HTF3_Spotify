@@ -835,21 +835,29 @@ export default function Home() {
                   </svg>
                 </span>
                 {showTeamDropdown && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: '0',
-                    marginTop: '0.5rem',
-                    backgroundColor: 'rgba(8, 10, 46, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    borderRadius: '8px',
-                    padding: '0.5rem',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    zIndex: 1000
-                  }}>
+                  <div 
+                    className="team-dropdown"
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: '0',
+                      marginTop: '0.5rem',
+                      backgroundColor: 'rgba(8, 10, 46, 0.95)',
+                      backdropFilter: 'blur(10px)',
+                      borderRadius: '8px',
+                      padding: '0.5rem',
+                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      zIndex: 1000,
+                      minWidth: '150px'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
-                      onClick={handleLogout}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLogout();
+                      }}
                       style={{
                         padding: '0.5rem 1rem',
                         backgroundColor: 'transparent',
