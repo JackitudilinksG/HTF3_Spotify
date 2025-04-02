@@ -544,6 +544,11 @@ export default function Home() {
     }
   };
 
+  // Add this function to generate Spotify track URL
+  const getSpotifyTrackUrl = (track: SpotifyTrack) => {
+    return `https://open.spotify.com/track/${track.id}`;
+  };
+
   return (
     <div style={{ 
       padding: '2rem',
@@ -848,8 +853,8 @@ export default function Home() {
           queue.map((track, index) => (
             <div key={track.id} style={{
               padding: '1rem',
-              borderRadius: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
               fontSize: '1.5rem',
               fontWeight: 'bold',
               color: '#080A2E',
@@ -859,12 +864,24 @@ export default function Home() {
               position: 'relative',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              backgroundColor: '#fff',
+              border: '1px solid #e0e0e0',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
             }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '1rem'
+                gap: '1rem',
+                flex: 1
               }}>
                 <span style={{
                   fontSize: '1.2rem',
@@ -893,18 +910,64 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <span style={{
-                fontSize: '1.2rem',
-                color: '#666',
-                marginLeft: '1rem',
-                whiteSpace: 'nowrap'
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem'
               }}>
-                {formatDuration(track.duration_ms)}
-              </span>
+                <span style={{
+                  fontSize: '1.2rem',
+                  color: '#666',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {formatDuration(track.duration_ms)}
+                </span>
+                <a
+                  href={getSpotifyTrackUrl(track)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: '0.5rem',
+                    backgroundColor: '#1DB954',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#1ed760'}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1DB954'}
+                >
+                  <svg 
+                    width="20" 
+                    height="20" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path 
+                      d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                    <path 
+                      d="M10 8L18 12L10 16V8Z" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </a>
+              </div>
             </div>
           ))
         )}
-        
       </div>
       {isLoggedIn && (
           <button
