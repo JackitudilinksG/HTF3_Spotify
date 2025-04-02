@@ -639,6 +639,7 @@ export default function Home() {
       }
 
       const data = await response.json();
+      console.log('Active devices:', data.devices);
       setActiveDevices(data.devices);
       
       // If there's an active device, select it
