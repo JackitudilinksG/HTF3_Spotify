@@ -19,6 +19,9 @@ interface SpotifyTrack {
   };
 }
 
+const ADMIN_CODES = ['HTF3_ADMIN1', 'HTF3_ADMIN2', 'HTF3_ADMIN3', 'HTF3_ADMIN4'];
+const PLAYBACK_ADMIN = 'HTF3_ADMIN1';
+
 export default function Home() {
   const [text, setText] = useState<string>('');
   const [queue, setQueue] = useState<SpotifyTrack[]>([]);
@@ -237,27 +240,27 @@ export default function Home() {
   };
 
   const handleClear = async () => {
-    // Only allow admin to clear the queue
-    if (teamName !== 'ADMIN') {
-      alert('Only admin can clear the queue');
-      return;
+    // Allow any admin to clear the queue
+    if (!ADMIN_CODES.includes(teamCode)) {
+        alert('Only admin can clear the queue');
+        return;
     }
 
     try {
-      const response = await fetch('/api/queue', {
-        method: 'DELETE',
-      });
+        const response = await fetch('/api/queue', {
+            method: 'DELETE',
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to clear queue');
-      }
+        if (!response.ok) {
+            throw new Error('Failed to clear queue');
+        }
 
-      // Update the queue immediately
-      const data = await response.json();
-      setQueue(data.queue);
+        // Update the queue immediately
+        const data = await response.json();
+        setQueue(data.queue);
     } catch (error) {
-      console.error('Error clearing queue:', error);
-      alert('Failed to clear queue. Please try again.');
+        console.error('Error clearing queue:', error);
+        alert('Failed to clear queue. Please try again.');
     }
   };
 
@@ -270,13 +273,13 @@ export default function Home() {
 
     try {
         // Check if the code is an admin code
-        if (teamCode === 'HTF3_ADMIN') {
+        if (ADMIN_CODES.includes(teamCode)) {
             setIsLoggedIn(true);
-            setTeamName('ADMIN');
+            setTeamName(teamCode);
             setLastActivity(Date.now());
             // Store login state in localStorage
             localStorage.setItem('isLoggedIn', 'true');
-            localStorage.setItem('teamName', 'ADMIN');
+            localStorage.setItem('teamName', teamCode);
             localStorage.setItem('lastActivity', Date.now().toString());
             setShowLoginModal(false);
             setTeamCode('');
@@ -488,66 +491,66 @@ export default function Home() {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
     // Only allow HTF3_ADMIN1 to control playback
-    if (teamName !== 'ADMIN') {
-      alert('Only the admin device can control playback');
-      return;
+    if (teamName !== PLAYBACK_ADMIN) {
+        alert('Only the playback admin can control music playback');
+        return;
     }
 
     try {
-      // First, get active devices
-      await getActiveDevices();
-      
-      // If no active device, try to transfer playback to the first available device
-      if (!selectedDevice && activeDevices.length > 0) {
-        const deviceId = activeDevices[0].id;
-        await fetch('https://api.spotify.com/v1/me/player', {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${spotifyAccessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            device_ids: [deviceId],
-            play: false,
-          }),
+        // First, get active devices
+        await getActiveDevices();
+        
+        // If no active device, try to transfer playback to the first available device
+        if (!selectedDevice && activeDevices.length > 0) {
+            const deviceId = activeDevices[0].id;
+            await fetch('https://api.spotify.com/v1/me/player', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${spotifyAccessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    device_ids: [deviceId],
+                    play: false,
+                }),
+            });
+            setSelectedDevice(deviceId);
+        }
+
+        const nextTrack = queue[0];
+        
+        // Call Spotify API to play the track
+        const response = await fetch('https://api.spotify.com/v1/me/player/play', {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${spotifyAccessToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                uris: [nextTrack.uri],
+            }),
         });
-        setSelectedDevice(deviceId);
-      }
 
-      const nextTrack = queue[0];
-      
-      // Call Spotify API to play the track
-      const response = await fetch('https://api.spotify.com/v1/me/player/play', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${spotifyAccessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uris: [nextTrack.uri],
-        }),
-      });
+        if (!response.ok) {
+            throw new Error('Failed to play track');
+        }
 
-      if (!response.ok) {
-        throw new Error('Failed to play track');
-      }
-
-      // Update currently playing track
-      setCurrentlyPlaying(nextTrack);
-      
-      // Remove the played track from the queue
-      const newQueue = queue.slice(1);
-      setQueue(newQueue);
-      
-      // Update the queue on the server
-      await fetch('/api/queue', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ queue: newQueue }),
-      });
+        // Update currently playing track
+        setCurrentlyPlaying(nextTrack);
+        
+        // Remove the played track from the queue
+        const newQueue = queue.slice(1);
+        setQueue(newQueue);
+        
+        // Update the queue on the server
+        await fetch('/api/queue', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queue: newQueue }),
+        });
     } catch (error) {
-      console.error('Error playing track:', error);
-      alert('Failed to play track. Please make sure you have an active Spotify device.');
+        console.error('Error playing track:', error);
+        alert('Failed to play track. Please make sure you have an active Spotify device.');
     }
   };
 
@@ -570,37 +573,37 @@ export default function Home() {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
     // Only allow HTF3_ADMIN1 to control playback
-    if (teamName !== 'HTF3_ADMIN1') {
-      alert('Only the admin device can control playback');
-      return;
+    if (teamName !== PLAYBACK_ADMIN) {
+        alert('Only the playback admin can control music playback');
+        return;
     }
 
     try {
-      // Call Spotify API to skip the current track
-      const response = await fetch('https://api.spotify.com/v1/me/player/next', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${spotifyAccessToken}`,
-        },
-      });
+        // Call Spotify API to skip the current track
+        const response = await fetch('https://api.spotify.com/v1/me/player/next', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${spotifyAccessToken}`,
+            },
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to skip track');
-      }
+        if (!response.ok) {
+            throw new Error('Failed to skip track');
+        }
 
-      // Remove the current track from the queue
-      const newQueue = queue.slice(1);
-      setQueue(newQueue);
-      
-      // Update the queue on the server
-      await fetch('/api/queue', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ queue: newQueue }),
-      });
+        // Remove the current track from the queue
+        const newQueue = queue.slice(1);
+        setQueue(newQueue);
+        
+        // Update the queue on the server
+        await fetch('/api/queue', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queue: newQueue }),
+        });
     } catch (error) {
-      console.error('Error skipping track:', error);
-      alert('Failed to skip track. Please try again.');
+        console.error('Error skipping track:', error);
+        alert('Failed to skip track. Please try again.');
     }
   };
 
@@ -980,7 +983,7 @@ export default function Home() {
         <button type="submit" style={{ padding: '0.5rem 1rem', marginLeft: '1rem' }}>
           Search
         </button>
-        {teamName === 'ADMIN' && (
+        {ADMIN_CODES.includes(teamName) && (
           <button 
             type="button" 
             onClick={handleClear}
@@ -1183,7 +1186,7 @@ export default function Home() {
           ))
         )}
       </div>
-      {isLoggedIn && teamName === 'HTF3_ADMIN1' ? (
+      {isLoggedIn && teamName === PLAYBACK_ADMIN ? (
         <div style={{
           display: 'flex',
           flexDirection: 'column',
