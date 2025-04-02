@@ -228,6 +228,12 @@ export default function Home() {
   };
 
   const handleClear = async () => {
+    // Only allow admin to clear the queue
+    if (teamName !== 'ADMIN') {
+      alert('Only admin can clear the queue');
+      return;
+    }
+
     try {
       const response = await fetch('/api/queue', {
         method: 'DELETE',
@@ -505,6 +511,39 @@ export default function Home() {
     }
   };
 
+  // Add this new function to handle skipping the current song
+  const handleSkip = async () => {
+    if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
+
+    try {
+      // Call Spotify API to skip the current track
+      const response = await fetch('https://api.spotify.com/v1/me/player/next', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${spotifyAccessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to skip track');
+      }
+
+      // Remove the current track from the queue
+      const newQueue = queue.slice(1);
+      setQueue(newQueue);
+      
+      // Update the queue on the server
+      await fetch('/api/queue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queue: newQueue }),
+      });
+    } catch (error) {
+      console.error('Error skipping track:', error);
+      alert('Failed to skip track. Please try again.');
+    }
+  };
+
   return (
     <div style={{ 
       padding: '2rem',
@@ -729,13 +768,15 @@ export default function Home() {
         <button type="submit" style={{ padding: '0.5rem 1rem', marginLeft: '1rem' }}>
           Search
         </button>
-        <button 
-          type="button" 
-          onClick={handleClear}
-          style={{ padding: '0.5rem 1rem', marginLeft: '1rem' }}
-        >
-          Clear
-        </button>
+        {teamName === 'ADMIN' && (
+          <button 
+            type="button" 
+            onClick={handleClear}
+            style={{ padding: '0.5rem 1rem', marginLeft: '1rem' }}
+          >
+            Clear Queue
+          </button>
+        )}
       </form>
 
       {showSearchResults && (
@@ -906,6 +947,22 @@ export default function Home() {
             }}
           >
             Play Next Song
+          </button>
+          <button
+            onClick={handleSkip}
+            disabled={queue.length === 0}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#FF9800',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
+              fontSize: '1rem',
+              opacity: queue.length === 0 ? 0.5 : 1
+            }}
+          >
+            Skip Current Song
           </button>
           {currentlyPlaying && (
             <div style={{
