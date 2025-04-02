@@ -454,6 +454,7 @@ export default function Home() {
 
   const handleLogout = () => {
     // Clear Spotify token if exists
+    console.log('Log out Button clicked');
     if (teamName) {
       const tokenKey = `spotifyAccessToken_${teamName}`;
       localStorage.removeItem(tokenKey);
@@ -487,7 +488,7 @@ export default function Home() {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
     // Only allow HTF3_ADMIN1 to control playback
-    if (teamName !== 'HTF3_ADMIN1') {
+    if (teamName !== 'ADMIN') {
       alert('Only the admin device can control playback');
       return;
     }
