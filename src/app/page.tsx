@@ -27,6 +27,10 @@ export default function Home() {
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
   const POLLING_INTERVAL = 3000; // 3 seconds
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminCode, setAdminCode] = useState('');
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [currentlyPlaying, setCurrentlyPlaying] = useState<SpotifyTrack | null>(null);
 
   // Check for session timeout
   useEffect(() => {
@@ -432,6 +436,85 @@ export default function Home() {
     localStorage.removeItem('lastActivity');
   };
 
+  const handleAdminLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!adminCode.trim()) {
+      alert('Please enter an admin code');
+      return;
+    }
+
+    try {
+      // In a real app, you would verify this against your backend
+      if (adminCode === 'HTF3_ADMIN') { // Replace with your actual admin code
+        setIsAdmin(true);
+        setShowAdminModal(false);
+        setAdminCode('');
+        // Start polling for queue updates more frequently when admin
+        setPollingInterval(1000); // Poll every second when admin
+      } else {
+        alert('Invalid admin code');
+      }
+    } catch (error) {
+      console.error('Admin login error:', error);
+      alert('Failed to verify admin code. Please try again.');
+    }
+  };
+
+  const handlePlayNext = async () => {
+    if (!isAdmin || !spotifyAccessToken || queue.length === 0) return;
+
+    try {
+      const nextTrack = queue[0];
+      
+      // Call Spotify API to play the track
+      const response = await fetch('https://api.spotify.com/v1/me/player/play', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${spotifyAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uris: [nextTrack.uri],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to play track');
+      }
+
+      // Update currently playing track
+      setCurrentlyPlaying(nextTrack);
+      
+      // Remove the played track from the queue
+      const newQueue = queue.slice(1);
+      setQueue(newQueue);
+      
+      // Update the queue on the server
+      await fetch('/api/queue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queue: newQueue }),
+      });
+    } catch (error) {
+      console.error('Error playing track:', error);
+      alert('Failed to play track. Please try again.');
+    }
+  };
+
+  const handleQueueUpdate = async (newQueue: SpotifyTrack[]) => {
+    if (!isAdmin) return;
+    
+    try {
+      await fetch('/api/queue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queue: newQueue }),
+      });
+    } catch (error) {
+      console.error('Error updating queue:', error);
+    }
+  };
+
   return (
     <div style={{ 
       padding: '2rem',
@@ -812,6 +895,132 @@ export default function Home() {
             Logout
           </button>
         )}
+      {isAdmin ? (
+        <div style={{
+          display: 'flex',
+          gap: '1rem',
+          marginTop: '1rem'
+        }}>
+          <button
+            onClick={handlePlayNext}
+            disabled={!currentlyPlaying && queue.length === 0}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#4CAF50',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
+              fontSize: '1rem',
+              opacity: queue.length === 0 ? 0.5 : 1
+            }}
+          >
+            Play Next Song
+          </button>
+          {currentlyPlaying && (
+            <div style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#2196F3',
+              color: '#fff',
+              borderRadius: '4px',
+              fontSize: '1rem'
+            }}>
+              Now Playing: {currentlyPlaying.name} - {currentlyPlaying.artists[0].name}
+            </div>
+          )}
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAdminModal(true)}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#080A2E',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            marginTop: '1rem'
+          }}
+        >
+          Become Admin
+        </button>
+      )}
+      {showAdminModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#DDE3FF',
+            padding: '2rem',
+            borderRadius: '8px',
+            width: '400px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h2 style={{
+              color: '#080A2E',
+              marginBottom: '1.5rem',
+              textAlign: 'center'
+            }}>Enter Admin Code</h2>
+            <form onSubmit={handleAdminLogin}>
+              <input
+                type="password"
+                value={adminCode}
+                onChange={(e) => setAdminCode(e.target.value)}
+                placeholder="Enter admin code"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  marginBottom: '1rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
+              <div style={{
+                display: 'flex',
+                gap: '1rem',
+                justifyContent: 'flex-end'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAdminModal(false)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#ccc',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#080A2E',
+                    color: '#DDE3FF',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Login
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
