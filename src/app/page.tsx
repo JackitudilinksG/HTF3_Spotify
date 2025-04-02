@@ -453,16 +453,34 @@ export default function Home() {
   };
 
   const handleLogout = () => {
+    // Clear Spotify token if exists
     if (teamName) {
       const tokenKey = `spotifyAccessToken_${teamName}`;
       localStorage.removeItem(tokenKey);
     }
+
+    // Clear all state
     setIsLoggedIn(false);
     setTeamName('');
     setSpotifyAccessToken(null);
+    setQueue([]);
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setCurrentlyPlaying(null);
+    setActiveDevices([]);
+    setSelectedDevice(null);
+    setShowTeamDropdown(false);
+
+    // Clear all localStorage items
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('teamName');
     localStorage.removeItem('lastActivity');
+
+    // Clear any session storage
+    sessionStorage.removeItem('pendingSpotifyTeam');
+
+    // Force a page reload to ensure clean state
+    window.location.reload();
   };
 
   const handlePlayNext = async () => {
