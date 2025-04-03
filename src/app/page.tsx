@@ -1,4 +1,5 @@
 'use client';
+import Script from 'next/script';
 
 import { useState, useEffect, FormEvent } from 'react';
 import { verifyTeamCode } from '@/lib/appwrite';
@@ -154,7 +155,7 @@ export default function Home() {
     });
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {  
     e.preventDefault();
     if (!text.trim()) return;
     
@@ -170,13 +171,9 @@ export default function Home() {
     }
 
     try {
-      console.log('Searching for:', text);
-      console.log('Team name:', teamName);
       // Search for tracks
       const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(text)}&access_token=${spotifyAccessToken}`);
       const data = await res.json();
-      
-      console.log('Search response:', data);
       
       if (data.error) {
         console.error('Search error:', data.error);
@@ -241,7 +238,7 @@ export default function Home() {
 
   const handleClear = async () => {
     // Allow any admin to clear the queue
-    if (!ADMIN_CODES.includes(teamCode)) {
+    if (!ADMIN_CODES.includes(teamName)) {
         alert('Only admin can clear the queue');
         return;
     }
@@ -639,7 +636,6 @@ export default function Home() {
       }
 
       const data = await response.json();
-      console.log('Active devices:', data.devices);
       setActiveDevices(data.devices);
       
       // If there's an active device, select it
