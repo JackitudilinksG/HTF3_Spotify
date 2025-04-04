@@ -637,6 +637,8 @@ export default function Home() {
 
       const data = await response.json();
       setActiveDevices(data.devices);
+      console.log("Devices found: "+data.devices);
+      console.log("Song queue: "+data.queue);
       
       // If there's an active device, select it
       const activeDevice = data.devices.find((device: any) => device.is_active);
