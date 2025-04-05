@@ -1,5 +1,6 @@
 import { SpotifyTrack } from '@/types/spotify';
 import { formatDuration, getSpotifyTrackUrl } from '@/utils/formatting';
+import { PlaybackControls } from './PlaybackControls';
 
 interface TrackListProps {
   tracks: SpotifyTrack[];
@@ -7,6 +8,9 @@ interface TrackListProps {
   onRemoveTrack?: (trackId: string) => void;
   showAddButton?: boolean;
   showRemoveButton?: boolean;
+  spotifyAccessToken?: string | null;
+  isAdmin?: boolean;
+  onPlayNext?: () => void;
 }
 
 export const TrackList = ({
@@ -15,10 +19,13 @@ export const TrackList = ({
   onRemoveTrack,
   showAddButton = false,
   showRemoveButton = false,
+  spotifyAccessToken,
+  isAdmin = false,
+  onPlayNext,
 }: TrackListProps) => {
   return (
     <div className="space-y-2">
-      {tracks.map((track) => (
+      {tracks.map((track, index) => (
         <div
           key={track.id}
           className="flex items-center justify-between p-3 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
@@ -49,6 +56,14 @@ export const TrackList = ({
             </div>
           </div>
           <div className="flex space-x-2 ml-4">
+            {index === 0 && spotifyAccessToken && onPlayNext && (
+              <PlaybackControls
+                track={track}
+                spotifyAccessToken={spotifyAccessToken}
+                isAdmin={isAdmin}
+                onPlayNext={onPlayNext}
+              />
+            )}
             {showAddButton && onAddTrack && (
               <button
                 onClick={() => onAddTrack(track)}
