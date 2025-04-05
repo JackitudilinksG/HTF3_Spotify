@@ -658,8 +658,10 @@ export default function Home() {
     }
   }, [spotifyAccessToken]);
 
-  function displaySongs() {
-    console.log("Song queue: " + JSON.stringify(data.devices, null, 2));
+  const displaySongs = async() => {
+    const res = await fetch('/api/queue');
+    const data = await res.json();
+    console.log("Song queue: " + JSON.stringify(data.queue, null, 2));
   }
 
   return (
@@ -1291,7 +1293,7 @@ export default function Home() {
           )}
         </div>
       ) : null}
-      <button onClick={{displaySongs}}>
+      <button onClick={ displaySongs }>
         SONGS HERE
       </button>
     </div>
