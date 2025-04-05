@@ -661,7 +661,7 @@ export default function Home() {
   const displaySongs = async() => {
     const res = await fetch('/api/queue');
     const data = await res.json();
-    console.log("Song queue: " + JSON.stringify(data.queue[0], null, 2));
+    console.log("Song queue: " + JSON.stringify(data.queue[0].uri, null, 2));
   }
 
   return (
