@@ -637,8 +637,6 @@ export default function Home() {
 
       const data = await response.json();
       setActiveDevices(data.devices);
-      console.log("Devices found: "+data.devices);
-      console.log("Song queue: " + JSON.stringify(data.devices, null, 2));
       
       // If there's an active device, select it
       const activeDevice = data.devices.find((device: any) => device.is_active);
@@ -659,6 +657,10 @@ export default function Home() {
       getActiveDevices();
     }
   }, [spotifyAccessToken]);
+
+  function displaySongs() {
+    console.log("Song queue: " + JSON.stringify(data.devices, null, 2));
+  }
 
   return (
     <div style={{ 
@@ -1289,6 +1291,9 @@ export default function Home() {
           )}
         </div>
       ) : null}
+      <button onClick={{displaySongs}}>
+        SONGS HERE
+      </button>
     </div>
   );
 } 
