@@ -659,13 +659,24 @@ export default function Home() {
   }, [spotifyAccessToken]);
 
   const displaySongs = async() => {
-    const res = await fetch('/api/queue');
-    const data = await res.json();
-    console.log("Song queue: " + JSON.stringify(data.track.uri, null, 2));
-
-    data.queue.forEach((song: { uri: any; }) => {
-      console.log("Track URI:", song.uri);
-    });
+    try {
+      const res = await fetch('/api/queue');
+      const data = await res.json();
+  
+      if (data.queue && Array.isArray(data.queue)) {
+        data.queue.forEach((t: { track: { uri: any; }; }) => {
+          if (t && t.track) {
+            console.log("Track URI:", t.track.uri);
+          } else {
+            console.warn("Track data is missing or malformed:", t);
+          }
+        });
+      } else {
+        console.warn("Queue is missing or not an array:", data.queue);
+      }
+    } catch (error) {
+      console.error("Error fetching song queue:", error);
+    }
   }
 
   return (
