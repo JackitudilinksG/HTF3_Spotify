@@ -43,6 +43,10 @@ export default function Home() {
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const [activeDevices, setActiveDevices] = useState<any[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const [isLoadingQueue, setIsLoadingQueue] = useState(true);
+  const [queueError, setQueueError] = useState<string | null>(null);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1000; // 1 second
 
   // Check for session timeout
   useEffect(() => {
@@ -110,6 +114,7 @@ export default function Home() {
   // Add this useEffect after the other useEffect hooks
   useEffect(() => {
     let pollInterval: NodeJS.Timeout;
+    let isMounted = true;
 
     // Only start polling if we're logged in
     if (isLoggedIn) {
@@ -117,11 +122,16 @@ export default function Home() {
       fetchQueue();
 
       // Set up polling interval
-      pollInterval = setInterval(fetchQueue, POLLING_INTERVAL);
+      pollInterval = setInterval(() => {
+        if (isMounted) {
+          fetchQueue();
+        }
+      }, POLLING_INTERVAL);
     }
 
     // Cleanup function to clear the interval when component unmounts or user logs out
     return () => {
+      isMounted = false;
       if (pollInterval) {
         clearInterval(pollInterval);
       }
@@ -129,10 +139,36 @@ export default function Home() {
   }, [isLoggedIn]); // Only re-run if login state changes
 
   // Function to fetch the current queue from the API
-  const fetchQueue = async () => {
-    const res = await fetch('/api/queue');
-    const data = await res.json();
-    setQueue(data.queue);
+  const fetchQueue = async (retryCount = 0) => {
+    try {
+      setIsLoadingQueue(true);
+      setQueueError(null);
+      
+      const res = await fetch('/api/queue');
+      if (!res.ok) {
+        throw new Error(`Failed to fetch queue: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      
+      // Only update queue if we have valid data
+      if (data && Array.isArray(data.queue)) {
+        setQueue(data.queue);
+      } else {
+        throw new Error('Invalid queue data received');
+      }
+    } catch (error) {
+      console.error('Error fetching queue:', error);
+      setQueueError(error instanceof Error ? error.message : 'Failed to fetch queue');
+      
+      // Retry logic
+      if (retryCount < MAX_RETRIES) {
+        console.log(`Retrying queue fetch (${retryCount + 1}/${MAX_RETRIES})...`);
+        setTimeout(() => fetchQueue(retryCount + 1), RETRY_DELAY);
+      }
+    } finally {
+      setIsLoadingQueue(false);
+    }
   };
 
   // Fetch the queue on component mount
@@ -1200,7 +1236,37 @@ export default function Home() {
         flexDirection: 'column',
         gap: '1rem'
       }}>
-        {queue.length === 0 ? (
+        {isLoadingQueue ? (
+          <p style={{
+            fontSize: '1.5rem',
+            fontWeight: 'bold',
+            color: '#080A2E',
+            textAlign: 'center',
+            opacity: 0.5
+          }}>
+            Loading queue...
+          </p>
+        ) : queueError ? (
+          <div style={{
+            textAlign: 'center',
+            color: '#ff4444'
+          }}>
+            <p style={{ marginBottom: '1rem' }}>Error loading queue: {queueError}</p>
+            <button
+              onClick={() => fetchQueue()}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#080A2E',
+                color: '#DDE3FF',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : queue.length === 0 ? (
           <p style={{
             fontSize: '1.5rem',
             fontWeight: 'bold',
