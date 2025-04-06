@@ -31,6 +31,8 @@ export default function Home() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [teamCode, setTeamCode] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isAdminLogin, setIsAdminLogin] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null);
@@ -313,46 +315,62 @@ export default function Home() {
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
-    if (!teamCode.trim()) {
+    
+    if (isAdminLogin) {
+      if (!adminPassword.trim()) {
+        alert('Please enter an admin password');
+        return;
+      }
+
+      try {
+        // Check if the password is an admin code
+        if (ADMIN_CODES.includes(adminPassword)) {
+          setIsLoggedIn(true);
+          setTeamName(adminPassword);
+          setLastActivity(Date.now());
+          // Store login state in localStorage
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('teamName', adminPassword);
+          localStorage.setItem('lastActivity', Date.now().toString());
+          setShowLoginModal(false);
+          setAdminPassword('');
+          return;
+        } else {
+          alert('Invalid admin password');
+          return;
+        }
+      } catch (error) {
+        console.error('Admin login error:', error);
+        alert('Failed to verify admin password. Please try again.');
+      }
+    } else {
+      if (!teamCode.trim()) {
         alert('Please enter a team code');
         return;
-    }
+      }
 
-    try {
-        // Check if the code is an admin code
-        if (ADMIN_CODES.includes(teamCode)) {
-            setIsLoggedIn(true);
-            setTeamName(teamCode);
-            setLastActivity(Date.now());
-            // Store login state in localStorage
-            localStorage.setItem('isLoggedIn', 'true');
-            localStorage.setItem('teamName', teamCode);
-            localStorage.setItem('lastActivity', Date.now().toString());
-            setShowLoginModal(false);
-            setTeamCode('');
-            return;
-        }
-
-        // If not admin code, proceed with team code verification
+      try {
+        // Verify team code
         const result = await verifyTeamCode(teamCode);
         
         if (result.success && result.team) {
-            setIsLoggedIn(true);
-            const teamName = result.team.team_name || 'Team Missing';
-            setTeamName(teamName);
-            setLastActivity(Date.now());
-            // Store login state in localStorage
-            localStorage.setItem('isLoggedIn', 'true');
-            localStorage.setItem('teamName', teamName);
-            localStorage.setItem('lastActivity', Date.now().toString());
-            setShowLoginModal(false);
-            setTeamCode('');
+          setIsLoggedIn(true);
+          const teamName = result.team.team_name || 'Team Missing';
+          setTeamName(teamName);
+          setLastActivity(Date.now());
+          // Store login state in localStorage
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('teamName', teamName);
+          localStorage.setItem('lastActivity', Date.now().toString());
+          setShowLoginModal(false);
+          setTeamCode('');
         } else {
-            alert(result.error || 'Invalid team code');
+          alert(result.error || 'Invalid team code');
         }
-    } catch (error) {
-        console.error('Login error:', error);
+      } catch (error) {
+        console.error('Team login error:', error);
         alert('Failed to verify team code. Please try again.');
+      }
     }
   };
 
@@ -876,21 +894,72 @@ export default function Home() {
               color: '#080A2E',
               marginBottom: '1.5rem',
               textAlign: 'center'
-            }}>Enter Team Code</h2>
-            <form onSubmit={handleLogin}>
-              <input
-                type="text"
-                value={teamCode}
-                onChange={(e) => setTeamCode(e.target.value)}
-                placeholder="Enter your team code"
+            }}>Login</h2>
+            <div style={{
+              display: 'flex',
+              gap: '1rem',
+              marginBottom: '1.5rem',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={() => setIsAdminLogin(false)}
                 style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  marginBottom: '1rem',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: isAdminLogin ? 'rgba(8, 10, 46, 0.1)' : '#080A2E',
+                  color: isAdminLogin ? '#080A2E' : '#DDE3FF',
+                  border: 'none',
                   borderRadius: '4px',
-                  border: '1px solid #ccc'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
                 }}
-              />
+              >
+                Team Login
+              </button>
+              <button
+                onClick={() => setIsAdminLogin(true)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: isAdminLogin ? '#080A2E' : 'rgba(8, 10, 46, 0.1)',
+                  color: isAdminLogin ? '#DDE3FF' : '#080A2E',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Admin Login
+              </button>
+            </div>
+            <form onSubmit={handleLogin}>
+              {isAdminLogin ? (
+                <input
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="Enter admin password"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    marginBottom: '1rem',
+                    borderRadius: '4px',
+                    border: '1px solid #ccc'
+                  }}
+                />
+              ) : (
+                <input
+                  type="text"
+                  value={teamCode}
+                  onChange={(e) => setTeamCode(e.target.value)}
+                  placeholder="Enter your team code"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    marginBottom: '1rem',
+                    borderRadius: '4px',
+                    border: '1px solid #ccc'
+                  }}
+                />
+              )}
               <div style={{
                 display: 'flex',
                 gap: '1rem',
@@ -1461,6 +1530,37 @@ export default function Home() {
           width: '100%',
           maxWidth: '800px'
         }}>
+          {currentlyPlaying && (
+            <div style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#2196F3',
+              color: '#fff',
+              borderRadius: '4px',
+              fontSize: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem'
+            }}>
+              <img 
+                src={currentlyPlaying.album.images?.[0]?.url || '/default-album.png'} 
+                alt={`${currentlyPlaying.album.name} cover`}
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  borderRadius: '4px',
+                  objectFit: 'cover',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+              />
+              <div>
+                <div style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '0.5rem' }}>Now Playing:</div>
+                <div style={{ marginBottom: '0.25rem' }}>{currentlyPlaying.name}</div>
+                <div style={{ marginBottom: '0.25rem' }}>{currentlyPlaying.artists.map(artist => artist.name).join(', ')}</div>
+                <div>Album: {currentlyPlaying.album.name}</div>
+              </div>
+            </div>
+          )}
+          
           {teamName === PLAYBACK_ADMIN && (
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button
@@ -1531,37 +1631,6 @@ export default function Home() {
                     {device.name}
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-          
-          {currentlyPlaying && (
-            <div style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#2196F3',
-              color: '#fff',
-              borderRadius: '4px',
-              fontSize: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem'
-            }}>
-              <img 
-                src={currentlyPlaying.album.images?.[0]?.url || '/default-album.png'} 
-                alt={`${currentlyPlaying.album.name} cover`}
-                style={{
-                  width: '100px',
-                  height: '100px',
-                  borderRadius: '4px',
-                  objectFit: 'cover',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}
-              />
-              <div>
-                <div style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '0.5rem' }}>Now Playing:</div>
-                <div style={{ marginBottom: '0.25rem' }}>{currentlyPlaying.name}</div>
-                <div style={{ marginBottom: '0.25rem' }}>{currentlyPlaying.artists.map(artist => artist.name).join(', ')}</div>
-                <div>Album: {currentlyPlaying.album.name}</div>
               </div>
             </div>
           )}
