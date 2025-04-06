@@ -121,11 +121,24 @@ export default function Home() {
     if (isLoggedIn) {
       // Initial fetch
       fetchQueue();
+      if (spotifyAccessToken) {
+        fetchCurrentlyPlaying();
+      }
 
       // Set up polling interval
       pollInterval = setInterval(() => {
         if (isMounted) {
           fetchQueue();
+          if (spotifyAccessToken) {
+            fetchCurrentlyPlaying();
+          } else {
+            // Try to reconnect to Spotify if token is missing
+            const tokenKey = `spotifyAccessToken_${teamName}`;
+            const storedToken = localStorage.getItem(tokenKey);
+            if (storedToken) {
+              setSpotifyAccessToken(storedToken);
+            }
+          }
         }
       }, POLLING_INTERVAL);
     }
@@ -137,7 +150,7 @@ export default function Home() {
         clearInterval(pollInterval);
       }
     };
-  }, [isLoggedIn]); // Only re-run if login state changes
+  }, [isLoggedIn, spotifyAccessToken, teamName]); // Add teamName to dependencies
 
   // Function to fetch the current queue from the API
   const fetchQueue = async (retryCount = 0) => {
@@ -331,7 +344,7 @@ export default function Home() {
         
         if (result.success && result.admin) {
           setIsLoggedIn(true);
-          const adminName = result.admin.admin_name || 'Admin';
+          const adminName = result.admin.name || 'Admin';
           setTeamName(adminName);
           setIsAdmin(true);
           setLastActivity(Date.now());
@@ -791,6 +804,51 @@ export default function Home() {
     } catch (error) {
       console.error('Error checking admin status:', error);
       setIsAdmin(false);
+    }
+  };
+
+  // Add this function to fetch the currently playing track
+  const fetchCurrentlyPlaying = async () => {
+    try {
+      const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+        headers: {
+          'Authorization': `Bearer ${spotifyAccessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired, clear it
+          const tokenKey = `spotifyAccessToken_${teamName}`;
+          localStorage.removeItem(tokenKey);
+          setSpotifyAccessToken(null);
+          return;
+        }
+        throw new Error('Failed to fetch currently playing track');
+      }
+
+      const data = await response.json();
+      
+      if (data.item) {
+        const track = {
+          id: data.item.id,
+          name: data.item.name,
+          artists: data.item.artists,
+          album: data.item.album,
+          uri: data.item.uri,
+          duration_ms: data.item.duration_ms,
+          explicit: data.item.explicit,
+          external_urls: data.item.external_urls
+        };
+        console.log('Currently playing track:', track);
+        setCurrentlyPlaying(track);
+      } else {
+        console.log('No track currently playing');
+        setCurrentlyPlaying(null);
+      }
+    } catch (error) {
+      console.error('Error fetching currently playing track:', error);
+      setCurrentlyPlaying(null);
     }
   };
 
