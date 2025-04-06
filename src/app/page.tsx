@@ -120,7 +120,7 @@ export default function Home() {
     // Only start polling if we're logged in
     if (isLoggedIn) {
       // Initial fetch
-      fetchQueue();
+      fetchQueue(0, false);
       if (spotifyAccessToken) {
         fetchCurrentlyPlaying();
       }
@@ -128,7 +128,7 @@ export default function Home() {
       // Set up polling interval
       pollInterval = setInterval(() => {
         if (isMounted) {
-          fetchQueue();
+          fetchQueue(0, true);
           if (spotifyAccessToken) {
             fetchCurrentlyPlaying();
           } else {
@@ -153,10 +153,13 @@ export default function Home() {
   }, [isLoggedIn, spotifyAccessToken, teamName]); // Add teamName to dependencies
 
   // Function to fetch the current queue from the API
-  const fetchQueue = async (retryCount = 0) => {
+  const fetchQueue = async (retryCount = 0, isBackgroundUpdate = false) => {
     try {
-      setIsLoadingQueue(true);
-      setQueueError(null);
+      // Only show loading state for non-background updates
+      if (!isBackgroundUpdate) {
+        setIsLoadingQueue(true);
+        setQueueError(null);
+      }
       
       const res = await fetch('/api/queue');
       if (!res.ok) {
@@ -167,21 +170,31 @@ export default function Home() {
       
       // Only update queue if we have valid data
       if (data && Array.isArray(data.queue)) {
-        setQueue(data.queue);
+        const currentQueueIds = queue.map((track: SpotifyTrack) => track.id);
+        const newQueueIds = data.queue.map((track: SpotifyTrack) => track.id);
+        
+        if (JSON.stringify(currentQueueIds) !== JSON.stringify(newQueueIds)) {
+          setQueue(data.queue);
+        }
       } else {
         throw new Error('Invalid queue data received');
       }
     } catch (error) {
       console.error('Error fetching queue:', error);
-      setQueueError(error instanceof Error ? error.message : 'Failed to fetch queue');
+      // Only show error for non-background updates
+      if (!isBackgroundUpdate) {
+        setQueueError(error instanceof Error ? error.message : 'Failed to fetch queue');
+      }
       
       // Retry logic
       if (retryCount < MAX_RETRIES) {
         console.log(`Retrying queue fetch (${retryCount + 1}/${MAX_RETRIES})...`);
-        setTimeout(() => fetchQueue(retryCount + 1), RETRY_DELAY);
+        setTimeout(() => fetchQueue(retryCount + 1, isBackgroundUpdate), RETRY_DELAY);
       }
     } finally {
-      setIsLoadingQueue(false);
+      if (!isBackgroundUpdate) {
+        setIsLoadingQueue(false);
+      }
     }
   };
 
