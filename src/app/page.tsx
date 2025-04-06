@@ -498,6 +498,7 @@ export default function Home() {
         await getActiveDevices();
         
         // If no active device, try to transfer playback to the first available device
+        console.log("Selected Device: " + selectedDevice);
         if (!selectedDevice && activeDevices.length > 0) {
             const deviceId = activeDevices[0].id;
             await fetch('https://api.spotify.com/v1/me/player', {
@@ -525,6 +526,7 @@ export default function Home() {
             },
             body: JSON.stringify({
                 uris: [nextTrack.uri],
+                device_id: selectedDevice || activeDevices[0]?.id
             }),
         });
 
