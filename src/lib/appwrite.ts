@@ -101,7 +101,7 @@ export const verifyAdminCode = async (adminCode: string) => {
             process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID,
             '67ea413d002cad3cdf79',
             [
-                Query.equal('admin_code', adminCode)
+                Query.equal('password', adminCode)
             ]
         );
 
