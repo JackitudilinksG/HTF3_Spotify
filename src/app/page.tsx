@@ -21,11 +21,6 @@ interface SpotifyTrack {
   };
 }
 
-interface Admin {
-  name: string;
-  password: string;
-}
-
 const ADMIN_CODES = ['HTF3_ADMIN1', 'HTF3_ADMIN2', 'HTF3_ADMIN3', 'HTF3_ADMIN4'];
 const PLAYBACK_ADMIN = 'HTF3_ADMIN1';
 
@@ -50,8 +45,6 @@ export default function Home() {
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
   const [isLoadingQueue, setIsLoadingQueue] = useState(true);
   const [queueError, setQueueError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminName, setAdminName] = useState<string>('');
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 1000; // 1 second
 
@@ -295,7 +288,7 @@ export default function Home() {
 
   const handleClear = async () => {
     // Allow any admin to clear the queue
-    if (!isAdmin) {
+    if (!ADMIN_CODES.includes(teamName)) {
         alert('Only admin can clear the queue');
         return;
     }
@@ -326,33 +319,21 @@ export default function Home() {
     }
 
     try {
-        // First check if it's an admin code
-        const adminResponse = await fetch('/api/admin/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: teamCode }),
-        });
-
-        if (adminResponse.ok) {
-            const adminData = await adminResponse.json();
-            if (adminData.isAdmin) {
-                setIsLoggedIn(true);
-                setIsAdmin(true);
-                setAdminName(adminData.name);
-                setTeamName(adminData.name);
-                setLastActivity(Date.now());
-                localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('teamName', adminData.name);
-                localStorage.setItem('isAdmin', 'true');
-                localStorage.setItem('adminName', adminData.name);
-                localStorage.setItem('lastActivity', Date.now().toString());
-                setShowLoginModal(false);
-                setTeamCode('');
-                return;
-            }
+        // Check if the code is an admin code
+        if (ADMIN_CODES.includes(teamCode)) {
+            setIsLoggedIn(true);
+            setTeamName(teamCode);
+            setLastActivity(Date.now());
+            // Store login state in localStorage
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('teamName', teamCode);
+            localStorage.setItem('lastActivity', Date.now().toString());
+            setShowLoginModal(false);
+            setTeamCode('');
+            return;
         }
 
-        // If not admin, proceed with team code verification
+        // If not admin code, proceed with team code verification
         const result = await verifyTeamCode(teamCode);
         
         if (result.success && result.team) {
@@ -360,6 +341,7 @@ export default function Home() {
             const teamName = result.team.team_name || 'Team Missing';
             setTeamName(teamName);
             setLastActivity(Date.now());
+            // Store login state in localStorage
             localStorage.setItem('isLoggedIn', 'true');
             localStorage.setItem('teamName', teamName);
             localStorage.setItem('lastActivity', Date.now().toString());
@@ -539,15 +521,11 @@ export default function Home() {
     setActiveDevices([]);
     setSelectedDevice(null);
     setShowTeamDropdown(false);
-    setIsAdmin(false);
-    setAdminName('');
 
     // Clear all localStorage items
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('teamName');
     localStorage.removeItem('lastActivity');
-    localStorage.removeItem('isAdmin');
-    localStorage.removeItem('adminName');
 
     // Clear any session storage
     sessionStorage.removeItem('pendingSpotifyTeam');
@@ -559,9 +537,9 @@ export default function Home() {
   const handlePlayNext = async () => {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
-    // Only allow admin to control playback
-    if (!isAdmin) {
-        alert('Only admin can control music playback');
+    // Only allow HTF3_ADMIN1 to control playback
+    if (teamName !== PLAYBACK_ADMIN) {
+        alert('Only the playback admin can control music playback');
         return;
     }
 
@@ -643,9 +621,9 @@ export default function Home() {
   const handleSkip = async () => {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
-    // Only allow admin to control playback
-    if (!isAdmin) {
-        alert('Only admin can control music playback');
+    // Only allow HTF3_ADMIN1 to control playback
+    if (teamName !== PLAYBACK_ADMIN) {
+        alert('Only the playback admin can control music playback');
         return;
     }
 
@@ -739,7 +717,7 @@ export default function Home() {
   }
 
   const handleRemoveTrack = async (trackId: string) => {
-    if (!isAdmin) {
+    if (!ADMIN_CODES.includes(teamName)) {
       alert('Only admin can remove songs from the queue');
       return;
     }
@@ -1025,7 +1003,7 @@ export default function Home() {
                     gap: '0.5rem'
                   }}
                 >
-                  {isAdmin ? adminName : teamName}
+                  {teamName}
                   <svg 
                     width="12" 
                     height="12" 
@@ -1192,7 +1170,7 @@ export default function Home() {
         <button type="submit" style={{ padding: '0.5rem 1rem', marginLeft: '1rem' }}>
           Search
         </button>
-        {isAdmin && (
+        {ADMIN_CODES.includes(teamName) && (
           <button 
             type="button" 
             onClick={handleClear}
@@ -1385,7 +1363,7 @@ export default function Home() {
                 }}>
                   {formatDuration(track.duration_ms)}
                 </span>
-                {isAdmin && (
+                {ADMIN_CODES.includes(teamName) && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1564,25 +1542,19 @@ export default function Home() {
               fontSize: '1rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '1.5rem'
+              gap: '1rem'
             }}>
-              <div style={{
-                width: '100px',
-                height: '100px',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                <img 
-                  src={currentlyPlaying.album.images?.[0]?.url || '/default-album.png'} 
-                  alt={`${currentlyPlaying.album.name} cover`}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover'
-                  }}
-                />
-              </div>
+              <img 
+                src={currentlyPlaying.album.images?.[0]?.url || '/default-album.png'} 
+                alt={`${currentlyPlaying.album.name} cover`}
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  borderRadius: '4px',
+                  objectFit: 'cover',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+              />
               <div>
                 <div style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '0.5rem' }}>Now Playing:</div>
                 <div style={{ marginBottom: '0.25rem' }}>{currentlyPlaying.name}</div>
