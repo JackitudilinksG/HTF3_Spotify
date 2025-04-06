@@ -15,6 +15,7 @@ interface SpotifyTrack {
   uri: string;
   duration_ms: number;
   team_name?: string;
+  explicit: boolean;
   external_urls?: {
     spotify: string;
   };
@@ -205,6 +206,18 @@ export default function Home() {
 
   const handleAddTrack = async (track: SpotifyTrack) => {
     try {
+      // Check if the track is explicit
+      if (track.explicit) {
+        alert('Explicit songs are not allowed in the queue.');
+        return;
+      }
+
+      // Check if the track is longer than 5 minutes (300,000 milliseconds)
+      if (track.duration_ms > 300000) {
+        alert('Songs longer than 5 minutes are not allowed in the queue.');
+        return;
+      }
+
       // Add team name to the track before sending
       const trackWithTeam = {
         ...track,

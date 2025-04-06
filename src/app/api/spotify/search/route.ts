@@ -42,7 +42,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ tracks: { items: [] } });
     }
 
-    return NextResponse.json(data);
+    // Filter out explicit tracks and tracks longer than 5 minutes
+    const filteredTracks = data.tracks.items.filter((track: any) => 
+      !track.explicit && track.duration_ms <= 300000
+    );
+
+    return NextResponse.json({ tracks: { items: filteredTracks } });
   } catch (error) {
     console.error('Error searching Spotify:', error);
     return NextResponse.json({ error: `Failed to search Spotify: ${error instanceof Error ? error.message : 'Unknown error'}` }, { status: 500 });
