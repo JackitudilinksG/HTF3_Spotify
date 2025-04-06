@@ -1448,7 +1448,7 @@ export default function Home() {
           ))
         )}
       </div>
-      {isLoggedIn && teamName === PLAYBACK_ADMIN ? (
+      {isLoggedIn ? (
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -1461,42 +1461,44 @@ export default function Home() {
           width: '100%',
           maxWidth: '800px'
         }}>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button
-              onClick={handlePlayNext}
-              disabled={!currentlyPlaying && queue.length === 0}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#4CAF50',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
-                fontSize: '1rem',
-                opacity: queue.length === 0 ? 0.5 : 1
-              }}
-            >
-              Play Next Song
-            </button>
-            <button
-              onClick={handleSkip}
-              disabled={queue.length === 0}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#FF9800',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
-                fontSize: '1rem',
-                opacity: queue.length === 0 ? 0.5 : 1
-              }}
-            >
-              Skip Current Song
-            </button>
-          </div>
+          {teamName === PLAYBACK_ADMIN && (
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={handlePlayNext}
+                disabled={!currentlyPlaying && queue.length === 0}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#4CAF50',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
+                  fontSize: '1rem',
+                  opacity: queue.length === 0 ? 0.5 : 1
+                }}
+              >
+                Play Next Song
+              </button>
+              <button
+                onClick={handleSkip}
+                disabled={queue.length === 0}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#FF9800',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
+                  fontSize: '1rem',
+                  opacity: queue.length === 0 ? 0.5 : 1
+                }}
+              >
+                Skip Current Song
+              </button>
+            </div>
+          )}
           
-          {activeDevices.length > 0 && (
+          {teamName === PLAYBACK_ADMIN && activeDevices.length > 0 && (
             <div style={{ color: '#DDE3FF' }}>
               <h3 style={{ marginBottom: '0.5rem' }}>Active Devices:</h3>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
