@@ -252,7 +252,7 @@ export default function Home() {
         }
         alert('Error searching for songs. Please try again.');
         return;
-      }
+      } // testing vercel deployment
       
       if (data.tracks?.items?.length > 0) {
         console.log('Found tracks:', data.tracks.items);
