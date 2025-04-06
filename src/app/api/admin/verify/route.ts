@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     // Query the admin collection for matching password
     const response = await databases.listDocuments(
       process.env.NEXT_PUBLIC_DATABASE_ID!,
-      'admin',
+      '67ea413d002cad3cdf79',
       [
         `password=${password}`
       ]
