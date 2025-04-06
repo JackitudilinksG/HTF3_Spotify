@@ -29,6 +29,7 @@ export default function Home() {
   const [queue, setQueue] = useState<SpotifyTrack[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [teamCode, setTeamCode] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [teamName, setTeamName] = useState('');
@@ -701,6 +702,19 @@ export default function Home() {
     }
   };
 
+  // Check for terms acceptance on mount
+  useEffect(() => {
+    const hasAcceptedTerms = localStorage.getItem('hasAcceptedTerms');
+    if (!hasAcceptedTerms) {
+      setShowTermsModal(true);
+    }
+  }, []);
+
+  const handleAcceptTerms = () => {
+    localStorage.setItem('hasAcceptedTerms', 'true');
+    setShowTermsModal(false);
+  };
+
   return (
     <div style={{ 
       padding: '2rem',
@@ -708,6 +722,100 @@ export default function Home() {
       flexDirection: 'column',
       alignItems: 'center'
     }}>
+      {showTermsModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          backdropFilter: 'blur(5px)'
+        }}>
+          <div style={{
+            backgroundColor: '#DDE3FF',
+            padding: '2rem',
+            borderRadius: '12px',
+            width: '80%',
+            maxWidth: '600px',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            position: 'relative'
+          }}>
+            <h2 style={{
+              color: '#080A2E',
+              marginBottom: '1.5rem',
+              textAlign: 'center',
+              fontSize: '1.8rem'
+            }}>Terms and Conditions</h2>
+            
+            <div style={{
+              marginBottom: '2rem',
+              color: '#080A2E',
+              lineHeight: '1.6'
+            }}>
+              <p style={{ marginBottom: '1rem' }}>
+                Welcome to the HackToFuture3.0 Song Queue! By using this application, you agree to the following terms:
+              </p>
+              
+              <ol style={{ paddingLeft: '1.5rem', marginBottom: '1rem' }}>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  This application is for HackToFuture3.0 participants only. You must use a valid team code to access the queue.
+                </li>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  Only non-explicit songs under 5 minutes in length are allowed in the queue.
+                </li>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  Playback control is restricted to the designated admins.
+                </li>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  Adding songs is available to all participants.
+                </li>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  You must have an active Spotify account and device to play music.
+                </li>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  The application uses cookies to maintain your session and preferences.
+                </li>
+              </ol>
+
+              <p style={{ marginBottom: '1rem' }}>
+                By clicking "Accept", you acknowledge that you have read and agree to these terms.
+              </p>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '1rem'
+            }}>
+              <button
+                onClick={handleAcceptTerms}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#4CAF50',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#45a049'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4CAF50'}
+              >
+                Accept
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showLoginModal && (
         <div style={{
           position: 'fixed',

@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "HackToFuture3.0 Song Queue",
+  title: "HTF3.0 Song Queue",
   description: "Webapp to queue Spotify songs",
 };
 
