@@ -7,7 +7,7 @@ const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 function getBaseUrl() {
   // Use VERCEL_URL in production
   if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
+    return `https://htfy.vercel.app`;
   }
   
   // Use NEXT_PUBLIC_BASE_URL if set
