@@ -120,7 +120,7 @@ export default function Home() {
     // Only start polling if we're logged in
     if (isLoggedIn) {
       // Initial fetch
-      fetchQueue(0, false);
+      fetchQueue();
       if (spotifyAccessToken) {
         fetchCurrentlyPlaying();
       }
@@ -128,7 +128,7 @@ export default function Home() {
       // Set up polling interval
       pollInterval = setInterval(() => {
         if (isMounted) {
-          fetchQueue(0, true);
+          fetchQueue();
           if (spotifyAccessToken) {
             fetchCurrentlyPlaying();
           } else {
@@ -153,13 +153,10 @@ export default function Home() {
   }, [isLoggedIn, spotifyAccessToken, teamName]); // Add teamName to dependencies
 
   // Function to fetch the current queue from the API
-  const fetchQueue = async (retryCount = 0, isBackgroundUpdate = false) => {
+  const fetchQueue = async (retryCount = 0) => {
     try {
-      // Only show loading state for non-background updates
-      if (!isBackgroundUpdate) {
-        setIsLoadingQueue(true);
-        setQueueError(null);
-      }
+      setIsLoadingQueue(true);
+      setQueueError(null);
       
       const res = await fetch('/api/queue');
       if (!res.ok) {
@@ -170,31 +167,21 @@ export default function Home() {
       
       // Only update queue if we have valid data
       if (data && Array.isArray(data.queue)) {
-        const currentQueueIds = queue.map((track: SpotifyTrack) => track.id);
-        const newQueueIds = data.queue.map((track: SpotifyTrack) => track.id);
-        
-        if (JSON.stringify(currentQueueIds) !== JSON.stringify(newQueueIds)) {
-          setQueue(data.queue);
-        }
+        setQueue(data.queue);
       } else {
         throw new Error('Invalid queue data received');
       }
     } catch (error) {
       console.error('Error fetching queue:', error);
-      // Only show error for non-background updates
-      if (!isBackgroundUpdate) {
-        setQueueError(error instanceof Error ? error.message : 'Failed to fetch queue');
-      }
+      setQueueError(error instanceof Error ? error.message : 'Failed to fetch queue');
       
       // Retry logic
       if (retryCount < MAX_RETRIES) {
         console.log(`Retrying queue fetch (${retryCount + 1}/${MAX_RETRIES})...`);
-        setTimeout(() => fetchQueue(retryCount + 1, isBackgroundUpdate), RETRY_DELAY);
+        setTimeout(() => fetchQueue(retryCount + 1), RETRY_DELAY);
       }
     } finally {
-      if (!isBackgroundUpdate) {
-        setIsLoadingQueue(false);
-      }
+      setIsLoadingQueue(false);
     }
   };
 
@@ -252,7 +239,7 @@ export default function Home() {
         }
         alert('Error searching for songs. Please try again.');
         return;
-      } // testing vercel deployment
+      }
       
       if (data.tracks?.items?.length > 0) {
         console.log('Found tracks:', data.tracks.items);
