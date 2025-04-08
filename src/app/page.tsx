@@ -80,12 +80,14 @@ export default function Home() {
     const storedLoginState = localStorage.getItem('isLoggedIn');
     const storedTeamName = localStorage.getItem('teamName');
     const storedLastActivity = localStorage.getItem('lastActivity');
+    const storedIsAdmin = localStorage.getItem('isAdmin');
     
     if (storedLoginState === 'true' && storedTeamName) {
       const lastActivityTime = storedLastActivity ? parseInt(storedLastActivity) : Date.now();
       if (Date.now() - lastActivityTime <= SESSION_TIMEOUT) {
         setIsLoggedIn(true);
         setTeamName(storedTeamName);
+        setIsAdmin(storedIsAdmin === 'true');
         setLastActivity(lastActivityTime);
         
         // After setting team name, check for token in URL
@@ -351,6 +353,7 @@ export default function Home() {
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('teamName', adminName);
           localStorage.setItem('lastActivity', Date.now().toString());
+          localStorage.setItem('isAdmin', 'true');
           setShowLoginModal(false);
           setAdminPassword('');
           return;
@@ -381,6 +384,7 @@ export default function Home() {
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('teamName', teamName);
           localStorage.setItem('lastActivity', Date.now().toString());
+          localStorage.setItem('isAdmin', 'false');
           setShowLoginModal(false);
           setTeamCode('');
         } else {
@@ -558,11 +562,13 @@ export default function Home() {
     setActiveDevices([]);
     setSelectedDevice(null);
     setShowTeamDropdown(false);
+    setIsAdmin(false);
 
     // Clear all localStorage items
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('teamName');
     localStorage.removeItem('lastActivity');
+    localStorage.removeItem('isAdmin');
 
     // Clear any session storage
     sessionStorage.removeItem('pendingSpotifyTeam');
