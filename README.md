@@ -32,13 +32,13 @@ A collaborative music queue system built for HackToFuture 3.0, allowing teams to
 - Node.js (v14 or higher)
 - npm or yarn
 - Spotify Developer Account
-- MongoDB Atlas account
+- AppWrite Account
 
 ### Environment Setup
 
 1. Create a `.env.local` file in the root directory with the following variables:
 ```env
-MONGODB_URI=your_mongodb_uri
+Appwrite_URI=your_appwrite_uri
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 SPOTIFY_REDIRECT_URI=http://localhost:3000/api/spotify/callback
@@ -72,7 +72,7 @@ yarn dev
 
 - **Frontend**: Next.js, React, TypeScript
 - **Backend**: Next.js API Routes
-- **Database**: MongoDB
+- **Database**: AppWrite
 - **Authentication**: Custom team code system
 - **Styling**: CSS-in-JS
 - **API Integration**: Spotify Web API
@@ -116,7 +116,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Spotify for their excellent API
 - Next.js team for the amazing framework
-- MongoDB for the database service
+- AppWrite for the database service
 - All contributors and team members
 
 ## 📞 Support
