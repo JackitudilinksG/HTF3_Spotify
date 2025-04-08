@@ -25,7 +25,9 @@ export default function Home() {
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 1000; // 1 s
   const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
-  const POLLING_INTERVAL = 3000; // 3 seconds
+  const POLLING_INTERVAL = 10000; // 10 seconds instead of 3 seconds
+  const QUEUE_POLLING_INTERVAL = 5000; // 5 seconds for queue updates
+  const DEVICE_POLLING_INTERVAL = 30000; // 30 seconds for device updates
 
   const [text, setText] = useState<string>('');
   const [queue, setQueue] = useState<SpotifyTrack[]>([]);
@@ -117,6 +119,8 @@ export default function Home() {
   // Add this useEffect after the other useEffect hooks
   useEffect(() => {
     let pollInterval: NodeJS.Timeout;
+    let queueInterval: NodeJS.Timeout;
+    let deviceInterval: NodeJS.Timeout;
     let isMounted = true;
 
     // Only start polling if we're logged in
@@ -125,67 +129,75 @@ export default function Home() {
       fetchQueue();
       if (spotifyAccessToken) {
         fetchCurrentlyPlaying();
+        getActiveDevices();
       }
 
-      // Set up polling interval
+      // Set up polling intervals
       pollInterval = setInterval(async () => {
-        if (isMounted) {
-          await fetchQueue();
-          if (spotifyAccessToken) {
-            const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
-              headers: {
-                'Authorization': `Bearer ${spotifyAccessToken}`,
-              },
-            });
+        if (isMounted && spotifyAccessToken) {
+          const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+            headers: {
+              'Authorization': `Bearer ${spotifyAccessToken}`,
+            },
+          });
 
-            if (response.status === 200) {
-              const data = await response.json();
-              if (data.item) {
-                const track = {
-                  id: data.item.id,
-                  name: data.item.name,
-                  artists: data.item.artists,
-                  album: data.item.album,
-                  uri: data.item.uri,
-                  duration_ms: data.item.duration_ms,
-                  explicit: data.item.explicit,
-                  external_urls: data.item.external_urls
-                };
+          if (response.status === 200) {
+            const data = await response.json();
+            if (data.item) {
+              const track = {
+                id: data.item.id,
+                name: data.item.name,
+                artists: data.item.artists,
+                album: data.item.album,
+                uri: data.item.uri,
+                duration_ms: data.item.duration_ms,
+                explicit: data.item.explicit,
+                external_urls: data.item.external_urls
+              };
+              // Only update if the track has changed
+              if (!currentlyPlaying || currentlyPlaying.id !== track.id) {
                 setCurrentlyPlaying(track);
-              } else {
-                // No track is currently playing, check if we should play the next song
-                if (queue.length > 0 && isAdmin) {
-                  console.log('No track playing, attempting to play next song...');
-                  await handlePlayNext();
-                }
-                setCurrentlyPlaying(null);
               }
-            } else if (response.status === 401) {
-              // Token expired, clear it
-              const tokenKey = `spotifyAccessToken_${teamName}`;
-              localStorage.removeItem(tokenKey);
-              setSpotifyAccessToken(null);
+            } else {
+              // No track is currently playing, check if we should play the next song
+              if (queue.length > 0 && isAdmin) {
+                console.log('No track playing, attempting to play next song...');
+                await handlePlayNext();
+              }
+              setCurrentlyPlaying(null);
             }
-          } else {
-            // Try to reconnect to Spotify if token is missing
+          } else if (response.status === 401) {
+            // Token expired, clear it
             const tokenKey = `spotifyAccessToken_${teamName}`;
-            const storedToken = localStorage.getItem(tokenKey);
-            if (storedToken) {
-              setSpotifyAccessToken(storedToken);
-            }
+            localStorage.removeItem(tokenKey);
+            setSpotifyAccessToken(null);
           }
         }
       }, POLLING_INTERVAL);
+
+      // Separate interval for queue updates
+      queueInterval = setInterval(async () => {
+        if (isMounted) {
+          await fetchQueue();
+        }
+      }, QUEUE_POLLING_INTERVAL);
+
+      // Separate interval for device updates
+      deviceInterval = setInterval(async () => {
+        if (isMounted && spotifyAccessToken) {
+          await getActiveDevices();
+        }
+      }, DEVICE_POLLING_INTERVAL);
     }
 
-    // Cleanup function to clear the interval when component unmounts or user logs out
+    // Cleanup function to clear all intervals when component unmounts or user logs out
     return () => {
       isMounted = false;
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
+      if (pollInterval) clearInterval(pollInterval);
+      if (queueInterval) clearInterval(queueInterval);
+      if (deviceInterval) clearInterval(deviceInterval);
     };
-  }, [isLoggedIn, spotifyAccessToken, teamName, queue, isAdmin]); // Add queue and isAdmin to dependencies
+  }, [isLoggedIn, spotifyAccessToken, teamName, queue, isAdmin, currentlyPlaying]); // Add currentlyPlaying to dependencies
 
   // Function to fetch the current queue from the API
   const fetchQueue = async (retryCount = 0) => {
@@ -768,13 +780,6 @@ export default function Home() {
       console.error('Error getting devices:', error);
     }
   };
-
-  // Add this useEffect to check for active devices when Spotify is connected
-  useEffect(() => {
-    if (spotifyAccessToken) {
-      getActiveDevices();
-    }
-  }, [spotifyAccessToken]);
 
   const displaySongs = async() => {
     const res = await fetch('/api/queue');
