@@ -1,6 +1,6 @@
 # HackToFuture 3.0 Spotify Queue
 
-A collaborative music queue system built for HackToFuture 3.0, allowing teams to add songs to a shared Spotify playlist with controlled playback.
+A collaborative music queue system built for HackToFuture 3.0, allowing teams to add songs to a shared Spotify playlist with controlled playback. This project is hosted on Vercel for seamless deployment and continuous integration.
 
 ## 🎵 Features
 
@@ -33,6 +33,7 @@ A collaborative music queue system built for HackToFuture 3.0, allowing teams to
 - npm or yarn
 - Spotify Developer Account
 - MongoDB Atlas account
+- Vercel account (for deployment)
 
 ### Environment Setup
 
@@ -76,6 +77,7 @@ yarn dev
 - **Authentication**: Custom team code system
 - **Styling**: CSS-in-JS
 - **API Integration**: Spotify Web API
+- **Hosting**: Vercel
 
 ## 📋 Usage Guide
 
@@ -117,6 +119,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Spotify for their excellent API
 - Next.js team for the amazing framework
 - MongoDB for the database service
+- Vercel for the hosting platform
 - All contributors and team members
 
 ## 📞 Support
