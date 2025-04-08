@@ -1,36 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HackToFuture 3.0 Spotify Queue
 
-## Getting Started
+A collaborative music queue system built for HackToFuture 3.0, allowing teams to add songs to a shared Spotify playlist with controlled playback.
 
-First, run the development server:
+## 🎵 Features
 
+- **Team-Based Access**: Secure login system with team-specific codes
+- **Spotify Integration**: Seamless connection with Spotify for music playback
+- **Queue Management**: 
+  - Add songs to the queue
+  - View current queue
+  - Remove songs (admin only)
+  - Clear entire queue (admin only)
+- **Playback Control**:
+  - Automatic next track playback
+  - Manual skip functionality
+  - Device selection for playback
+- **Admin Features**:
+  - Exclusive playback control
+  - Queue management capabilities
+  - Device management
+- **User Experience**:
+  - Modern, responsive UI
+  - Real-time queue updates
+  - Terms and conditions acceptance
+  - Session management
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (v14 or higher)
+- npm or yarn
+- Spotify Developer Account
+- MongoDB Atlas account
+
+### Environment Setup
+
+1. Create a `.env.local` file in the root directory with the following variables:
+```env
+MONGODB_URI=your_mongodb_uri
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
+SPOTIFY_REDIRECT_URI=http://localhost:3000/api/spotify/callback
+```
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/HTF3_Spotify.git
+cd HTF3_Spotify
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Run the development server:
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Frontend**: Next.js, React, TypeScript
+- **Backend**: Next.js API Routes
+- **Database**: MongoDB
+- **Authentication**: Custom team code system
+- **Styling**: CSS-in-JS
+- **API Integration**: Spotify Web API
 
-## Learn More
+## 📋 Usage Guide
 
-To learn more about Next.js, take a look at the following resources:
+### For Teams
+1. Enter your team code to login
+2. Connect your Spotify account
+3. Search for songs and add them to the queue
+4. View the current queue and track information
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### For Admins
+1. Login with admin credentials
+2. Connect Spotify account
+3. Control playback and manage the queue
+4. Select playback device
+5. Monitor and manage the music queue
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔒 Security Features
 
-## Deploy on Vercel
+- Team-based authentication
+- Admin-only controls
+- Secure token management
+- Session timeout
+- Terms and conditions acceptance
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🤝 Contributing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Spotify for their excellent API
+- Next.js team for the amazing framework
+- MongoDB for the database service
+- All contributors and team members
+
+## 📞 Support
+
+For support, please contact the project maintainers or open an issue in the repository.
+
+---
+
+Made with ❤️ for HackToFuture 3.0
