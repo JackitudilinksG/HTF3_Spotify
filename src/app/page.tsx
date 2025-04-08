@@ -128,11 +128,44 @@ export default function Home() {
       }
 
       // Set up polling interval
-      pollInterval = setInterval(() => {
+      pollInterval = setInterval(async () => {
         if (isMounted) {
-          fetchQueue();
+          await fetchQueue();
           if (spotifyAccessToken) {
-            fetchCurrentlyPlaying();
+            const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+              headers: {
+                'Authorization': `Bearer ${spotifyAccessToken}`,
+              },
+            });
+
+            if (response.status === 200) {
+              const data = await response.json();
+              if (data.item) {
+                const track = {
+                  id: data.item.id,
+                  name: data.item.name,
+                  artists: data.item.artists,
+                  album: data.item.album,
+                  uri: data.item.uri,
+                  duration_ms: data.item.duration_ms,
+                  explicit: data.item.explicit,
+                  external_urls: data.item.external_urls
+                };
+                setCurrentlyPlaying(track);
+              } else {
+                // No track is currently playing, check if we should play the next song
+                if (queue.length > 0 && isAdmin) {
+                  console.log('No track playing, attempting to play next song...');
+                  await handlePlayNext();
+                }
+                setCurrentlyPlaying(null);
+              }
+            } else if (response.status === 401) {
+              // Token expired, clear it
+              const tokenKey = `spotifyAccessToken_${teamName}`;
+              localStorage.removeItem(tokenKey);
+              setSpotifyAccessToken(null);
+            }
           } else {
             // Try to reconnect to Spotify if token is missing
             const tokenKey = `spotifyAccessToken_${teamName}`;
@@ -152,7 +185,7 @@ export default function Home() {
         clearInterval(pollInterval);
       }
     };
-  }, [isLoggedIn, spotifyAccessToken, teamName]); // Add teamName to dependencies
+  }, [isLoggedIn, spotifyAccessToken, teamName, queue, isAdmin]); // Add queue and isAdmin to dependencies
 
   // Function to fetch the current queue from the API
   const fetchQueue = async (retryCount = 0) => {
@@ -581,70 +614,64 @@ export default function Home() {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
     // Check if the current user is an admin
-    try {
-      const result = await verifyAdminCode(teamName);
-      if (!result.success) {
-        alert('Only admins can control music playback');
-        return;
-      }
-
-      // First, get active devices
-      await getActiveDevices();
-      
-      // If no active device, try to transfer playback to the first available device
-      console.log("Selected Device: " + selectedDevice);
-      if (!selectedDevice && activeDevices.length > 0) {
-          const deviceId = activeDevices[0].id;
-          await fetch('https://api.spotify.com/v1/me/player', {
-              method: 'PUT',
-              headers: {
-                  'Authorization': `Bearer ${spotifyAccessToken}`,
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                  device_ids: [deviceId],
-                  play: false,
-              }),
-          });
-          setSelectedDevice(deviceId);
-      }
-
-      const nextTrack = queue[0];
-      
-      // Call Spotify API to play the track
-      const response = await fetch('https://api.spotify.com/v1/me/player/play', {
-          method: 'PUT',
-          headers: {
-              'Authorization': `Bearer ${spotifyAccessToken}`,
-              'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-              uris: [nextTrack.uri],
-              device_id: selectedDevice || activeDevices[0]?.id
-          }),
-      });
-
-      if (!response.ok) {
-          throw new Error('Failed to play track');
-      }
-
-      // Update currently playing track
-      setCurrentlyPlaying(nextTrack);
-      
-      // Remove the played track from the queue
-      const newQueue = queue.slice(1);
-      setQueue(newQueue);
-      
-      // Update the queue on the server
-      await fetch('/api/queue', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queue: newQueue }),
-      });
-    } catch (error) {
-        console.error('Error playing track:', error);
-        alert('Failed to play track. Please make sure you have an active Spotify device.');
+    if (!isAdmin) {
+      alert('Only admins can control music playback');
+      return;
     }
+
+    // First, get active devices
+    await getActiveDevices();
+    
+    // If no active device, try to transfer playback to the first available device
+    console.log("Selected Device: " + selectedDevice);
+    if (!selectedDevice && activeDevices.length > 0) {
+        const deviceId = activeDevices[0].id;
+        await fetch('https://api.spotify.com/v1/me/player', {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${spotifyAccessToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                device_ids: [deviceId],
+                play: false,
+            }),
+        });
+        setSelectedDevice(deviceId);
+    }
+
+    const nextTrack = queue[0];
+    
+    // Call Spotify API to play the track
+    const response = await fetch('https://api.spotify.com/v1/me/player/play', {
+        method: 'PUT',
+        headers: {
+            'Authorization': `Bearer ${spotifyAccessToken}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            uris: [nextTrack.uri],
+            device_id: selectedDevice || activeDevices[0]?.id
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to play track');
+    }
+
+    // Update currently playing track
+    setCurrentlyPlaying(nextTrack);
+    
+    // Remove the played track from the queue
+    const newQueue = queue.slice(1);
+    setQueue(newQueue);
+    
+    // Update the queue on the server
+    await fetch('/api/queue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queue: newQueue }),
+    });
   };
 
   const handleQueueUpdate = async (newQueue: SpotifyTrack[]) => {
@@ -666,39 +693,33 @@ export default function Home() {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
     // Check if the current user is an admin
-    try {
-      const result = await verifyAdminCode(teamName);
-      if (!result.success) {
-        alert('Only admins can skip songs');
-        return;
-      }
-
-      // Call Spotify API to skip the current track
-      const response = await fetch('https://api.spotify.com/v1/me/player/next', {
-          method: 'POST',
-          headers: {
-              'Authorization': `Bearer ${spotifyAccessToken}`,
-          },
-      });
-
-      if (!response.ok) {
-          throw new Error('Failed to skip track');
-      }
-
-      // Remove the current track from the queue
-      const newQueue = queue.slice(1);
-      setQueue(newQueue);
-      
-      // Update the queue on the server
-      await fetch('/api/queue', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queue: newQueue }),
-      });
-    } catch (error) {
-        console.error('Error skipping track:', error);
-        alert('Failed to skip track. Please try again.');
+    if (!isAdmin) {
+      alert('Only admins can skip songs');
+      return;
     }
+
+    // Call Spotify API to skip the current track
+    const response = await fetch('https://api.spotify.com/v1/me/player/next', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${spotifyAccessToken}`,
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to skip track');
+    }
+
+    // Remove the current track from the queue
+    const newQueue = queue.slice(1);
+    setQueue(newQueue);
+    
+    // Update the queue on the server
+    await fetch('/api/queue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queue: newQueue }),
+    });
   };
 
   // Add this function to generate Spotify track URL
