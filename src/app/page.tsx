@@ -715,6 +715,51 @@ export default function Home() {
     setShowTermsModal(false);
   };
 
+  // Add new function to check playback status
+  const checkPlaybackStatus = async () => {
+    if (!spotifyAccessToken || !isLoggedIn || teamName !== PLAYBACK_ADMIN) return;
+
+    try {
+      const response = await fetch('https://api.spotify.com/v1/me/player', {
+        headers: {
+          'Authorization': `Bearer ${spotifyAccessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get playback status');
+      }
+
+      const data = await response.json();
+      
+      // If no playback data or not playing, play next track
+      if (!data || !data.is_playing) {
+        if (queue.length > 0) {
+          handlePlayNext();
+        }
+      }
+    } catch (error) {
+      console.error('Error checking playback status:', error);
+    }
+  };
+
+  // Set up interval to check playback status
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isLoggedIn && teamName === PLAYBACK_ADMIN && spotifyAccessToken) {
+      // Check immediately and then every 5 seconds
+      checkPlaybackStatus();
+      interval = setInterval(checkPlaybackStatus, 5000);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isLoggedIn, teamName, spotifyAccessToken, queue.length]);
+
   return (
     <div style={{ 
       padding: '2rem',
