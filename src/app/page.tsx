@@ -2,7 +2,7 @@
 import Script from 'next/script';
 
 import { useState, useEffect, FormEvent } from 'react';
-import { verifyTeamCode, verifyAdminCode } from '@/lib/appwrite';
+import { verifyTeamCode } from '@/lib/appwrite';
 
 interface SpotifyTrack {
   id: string;
@@ -21,33 +21,28 @@ interface SpotifyTrack {
   };
 }
 
-export default function Home() {
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY = 1000; // 1 s
-  const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
-  const POLLING_INTERVAL = 3000; // 3 seconds
+const ADMIN_CODES = ['HTF3_ADMIN1', 'HTF3_ADMIN2', 'HTF3_ADMIN3', 'HTF3_ADMIN4'];
+const PLAYBACK_ADMIN = 'HTF3_ADMIN1';
 
+export default function Home() {
   const [text, setText] = useState<string>('');
   const [queue, setQueue] = useState<SpotifyTrack[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [teamCode, setTeamCode] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-  const [isAdminLogin, setIsAdminLogin] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SpotifyTrack[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
+  const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
+  const POLLING_INTERVAL = 3000; // 3 seconds
   const [currentlyPlaying, setCurrentlyPlaying] = useState<SpotifyTrack | null>(null);
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const [activeDevices, setActiveDevices] = useState<any[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
-  const [isLoadingQueue, setIsLoadingQueue] = useState(true);
-  const [queueError, setQueueError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   // Check for session timeout
   useEffect(() => {
@@ -115,7 +110,6 @@ export default function Home() {
   // Add this useEffect after the other useEffect hooks
   useEffect(() => {
     let pollInterval: NodeJS.Timeout;
-    let isMounted = true;
 
     // Only start polling if we're logged in
     if (isLoggedIn) {
@@ -123,16 +117,11 @@ export default function Home() {
       fetchQueue();
 
       // Set up polling interval
-      pollInterval = setInterval(() => {
-        if (isMounted) {
-          fetchQueue();
-        }
-      }, POLLING_INTERVAL);
+      pollInterval = setInterval(fetchQueue, POLLING_INTERVAL);
     }
 
     // Cleanup function to clear the interval when component unmounts or user logs out
     return () => {
-      isMounted = false;
       if (pollInterval) {
         clearInterval(pollInterval);
       }
@@ -140,36 +129,10 @@ export default function Home() {
   }, [isLoggedIn]); // Only re-run if login state changes
 
   // Function to fetch the current queue from the API
-  const fetchQueue = async (retryCount = 0) => {
-    try {
-      setIsLoadingQueue(true);
-      setQueueError(null);
-      
-      const res = await fetch('/api/queue');
-      if (!res.ok) {
-        throw new Error(`Failed to fetch queue: ${res.status}`);
-      }
-      
-      const data = await res.json();
-      
-      // Only update queue if we have valid data
-      if (data && Array.isArray(data.queue)) {
-        setQueue(data.queue);
-      } else {
-        throw new Error('Invalid queue data received');
-      }
-    } catch (error) {
-      console.error('Error fetching queue:', error);
-      setQueueError(error instanceof Error ? error.message : 'Failed to fetch queue');
-      
-      // Retry logic
-      if (retryCount < MAX_RETRIES) {
-        console.log(`Retrying queue fetch (${retryCount + 1}/${MAX_RETRIES})...`);
-        setTimeout(() => fetchQueue(retryCount + 1), RETRY_DELAY);
-      }
-    } finally {
-      setIsLoadingQueue(false);
-    }
+  const fetchQueue = async () => {
+    const res = await fetch('/api/queue');
+    const data = await res.json();
+    setQueue(data.queue);
   };
 
   // Fetch the queue on component mount
@@ -288,95 +251,72 @@ export default function Home() {
   };
 
   const handleClear = async () => {
-    try {
-      const result = await verifyAdminCode(teamName);
-      if (!result.success) {
+    // Allow any admin to clear the queue
+    if (!ADMIN_CODES.includes(teamName)) {
         alert('Only admin can clear the queue');
         return;
-      }
+    }
 
-      try {
+    try {
         const response = await fetch('/api/queue', {
-          method: 'DELETE',
+            method: 'DELETE',
         });
 
         if (!response.ok) {
-          throw new Error('Failed to clear queue');
+            throw new Error('Failed to clear queue');
         }
 
         // Update the queue immediately
         const data = await response.json();
         setQueue(data.queue);
-      } catch (error) {
+    } catch (error) {
         console.error('Error clearing queue:', error);
         alert('Failed to clear queue. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error verifying admin status:', error);
-      alert('Failed to verify admin status. Please try again.');
     }
   };
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
-    
-    if (isAdminLogin) {
-      if (!adminPassword.trim()) {
-        alert('Please enter an admin password');
-        return;
-      }
-
-      try {
-        const result = await verifyAdminCode(adminPassword);
-        
-        if (result.success && result.admin) {
-          setIsLoggedIn(true);
-          const adminName = result.admin.name || 'Admin';
-          setTeamName(adminName);
-          setIsAdmin(true);
-          setLastActivity(Date.now());
-          localStorage.setItem('isLoggedIn', 'true');
-          localStorage.setItem('teamName', adminName);
-          localStorage.setItem('lastActivity', Date.now().toString());
-          setShowLoginModal(false);
-          setAdminPassword('');
-          return;
-        } else {
-          alert(result.error || 'Invalid admin password');
-          return;
-        }
-      } catch (error) {
-        console.error('Admin login error:', error);
-        alert('Failed to verify admin password. Please try again.');
-      }
-    } else {
-      if (!teamCode.trim()) {
+    if (!teamCode.trim()) {
         alert('Please enter a team code');
         return;
-      }
+    }
 
-      try {
-        // Verify team code
+    try {
+        // Check if the code is an admin code
+        if (ADMIN_CODES.includes(teamCode)) {
+            setIsLoggedIn(true);
+            setTeamName(teamCode);
+            setLastActivity(Date.now());
+            // Store login state in localStorage
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('teamName', teamCode);
+            localStorage.setItem('lastActivity', Date.now().toString());
+            setShowLoginModal(false);
+            setTeamCode('');
+            return;
+        }
+
+        // If not admin code, proceed with team code verification
         const result = await verifyTeamCode(teamCode);
         
         if (result.success && result.team) {
-          setIsLoggedIn(true);
-          const teamName = result.team.team_name || 'Team Missing';
-          setTeamName(teamName);
-          setIsAdmin(false);
-          setLastActivity(Date.now());
-          localStorage.setItem('isLoggedIn', 'true');
-          localStorage.setItem('teamName', teamName);
-          localStorage.setItem('lastActivity', Date.now().toString());
-          setShowLoginModal(false);
-          setTeamCode('');
+            setIsLoggedIn(true);
+            const teamName = result.team.team_name || 'Team Missing';
+            setTeamName(teamName);
+            setLastActivity(Date.now());
+            // Store login state in localStorage
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('teamName', teamName);
+            localStorage.setItem('lastActivity', Date.now().toString());
+            setShowLoginModal(false);
+            setTeamCode('');
         } else {
-          alert(result.error || 'Invalid team code');
+            alert(result.error || 'Invalid team code');
         }
-      } catch (error) {
-        console.error('Team login error:', error);
+    } catch (error) {
+        console.error('Login error:', error);
         alert('Failed to verify team code. Please try again.');
-      }
     }
   };
 
@@ -561,67 +501,66 @@ export default function Home() {
   const handlePlayNext = async () => {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
-    // Check if the current user is an admin
-    try {
-      const result = await verifyAdminCode(teamName);
-      if (!result.success) {
-        alert('Only admins can control music playback');
+    // Only allow HTF3_ADMIN1 to control playback
+    if (teamName !== PLAYBACK_ADMIN) {
+        alert('Only the playback admin can control music playback');
         return;
-      }
+    }
 
-      // First, get active devices
-      await getActiveDevices();
-      
-      // If no active device, try to transfer playback to the first available device
-      console.log("Selected Device: " + selectedDevice);
-      if (!selectedDevice && activeDevices.length > 0) {
-          const deviceId = activeDevices[0].id;
-          await fetch('https://api.spotify.com/v1/me/player', {
-              method: 'PUT',
-              headers: {
-                  'Authorization': `Bearer ${spotifyAccessToken}`,
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                  device_ids: [deviceId],
-                  play: false,
-              }),
-          });
-          setSelectedDevice(deviceId);
-      }
+    try {
+        // First, get active devices
+        await getActiveDevices();
+        
+        // If no active device, try to transfer playback to the first available device
+        console.log("Selected Device: " + selectedDevice);
+        if (!selectedDevice && activeDevices.length > 0) {
+            const deviceId = activeDevices[0].id;
+            await fetch('https://api.spotify.com/v1/me/player', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${spotifyAccessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    device_ids: [deviceId],
+                    play: false,
+                }),
+            });
+            setSelectedDevice(deviceId);
+        }
 
-      const nextTrack = queue[0];
-      
-      // Call Spotify API to play the track
-      const response = await fetch('https://api.spotify.com/v1/me/player/play', {
-          method: 'PUT',
-          headers: {
-              'Authorization': `Bearer ${spotifyAccessToken}`,
-              'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-              uris: [nextTrack.uri],
-              device_id: selectedDevice || activeDevices[0]?.id
-          }),
-      });
+        const nextTrack = queue[0];
+        
+        // Call Spotify API to play the track
+        const response = await fetch('https://api.spotify.com/v1/me/player/play', {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${spotifyAccessToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                uris: [nextTrack.uri],
+                device_id: selectedDevice || activeDevices[0]?.id
+            }),
+        });
 
-      if (!response.ok) {
-          throw new Error('Failed to play track');
-      }
+        if (!response.ok) {
+            throw new Error('Failed to play track');
+        }
 
-      // Update currently playing track
-      setCurrentlyPlaying(nextTrack);
-      
-      // Remove the played track from the queue
-      const newQueue = queue.slice(1);
-      setQueue(newQueue);
-      
-      // Update the queue on the server
-      await fetch('/api/queue', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queue: newQueue }),
-      });
+        // Update currently playing track
+        setCurrentlyPlaying(nextTrack);
+        
+        // Remove the played track from the queue
+        const newQueue = queue.slice(1);
+        setQueue(newQueue);
+        
+        // Update the queue on the server
+        await fetch('/api/queue', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queue: newQueue }),
+        });
     } catch (error) {
         console.error('Error playing track:', error);
         alert('Failed to play track. Please make sure you have an active Spotify device.');
@@ -646,36 +585,35 @@ export default function Home() {
   const handleSkip = async () => {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
-    // Check if the current user is an admin
-    try {
-      const result = await verifyAdminCode(teamName);
-      if (!result.success) {
-        alert('Only admins can skip songs');
+    // Only allow HTF3_ADMIN1 to control playback
+    if (teamName !== PLAYBACK_ADMIN) {
+        alert('Only the playback admin can control music playback');
         return;
-      }
+    }
 
-      // Call Spotify API to skip the current track
-      const response = await fetch('https://api.spotify.com/v1/me/player/next', {
-          method: 'POST',
-          headers: {
-              'Authorization': `Bearer ${spotifyAccessToken}`,
-          },
-      });
+    try {
+        // Call Spotify API to skip the current track
+        const response = await fetch('https://api.spotify.com/v1/me/player/next', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${spotifyAccessToken}`,
+            },
+        });
 
-      if (!response.ok) {
-          throw new Error('Failed to skip track');
-      }
+        if (!response.ok) {
+            throw new Error('Failed to skip track');
+        }
 
-      // Remove the current track from the queue
-      const newQueue = queue.slice(1);
-      setQueue(newQueue);
-      
-      // Update the queue on the server
-      await fetch('/api/queue', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queue: newQueue }),
-      });
+        // Remove the current track from the queue
+        const newQueue = queue.slice(1);
+        setQueue(newQueue);
+        
+        // Update the queue on the server
+        await fetch('/api/queue', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queue: newQueue }),
+        });
     } catch (error) {
         console.error('Error skipping track:', error);
         alert('Failed to skip track. Please try again.');
@@ -743,30 +681,24 @@ export default function Home() {
   }
 
   const handleRemoveTrack = async (trackId: string) => {
-    try {
-      const result = await verifyAdminCode(teamName);
-      if (!result.success) {
-        alert('Only admin can remove songs from the queue');
-        return;
-      }
+    if (!ADMIN_CODES.includes(teamName)) {
+      alert('Only admin can remove songs from the queue');
+      return;
+    }
 
-      try {
-        const newQueue = queue.filter(track => track.id !== trackId);
-        setQueue(newQueue);
-        
-        // Update the queue on the server
-        await fetch('/api/queue', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queue: newQueue }),
-        });
-      } catch (error) {
-        console.error('Error removing track:', error);
-        alert('Failed to remove track. Please try again.');
-      }
+    try {
+      const newQueue = queue.filter(track => track.id !== trackId);
+      setQueue(newQueue);
+      
+      // Update the queue on the server
+      await fetch('/api/queue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queue: newQueue }),
+      });
     } catch (error) {
-      console.error('Error verifying admin status:', error);
-      alert('Failed to verify admin status. Please try again.');
+      console.error('Error removing track:', error);
+      alert('Failed to remove track. Please try again.');
     }
   };
 
@@ -781,17 +713,6 @@ export default function Home() {
   const handleAcceptTerms = () => {
     localStorage.setItem('hasAcceptedTerms', 'true');
     setShowTermsModal(false);
-  };
-
-  // Add a function to check admin status
-  const checkAdminStatus = async (teamName: string) => {
-    try {
-      const result = await verifyAdminCode(teamName);
-      setIsAdmin(result.success);
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      setIsAdmin(false);
-    }
   };
 
   return (
@@ -919,72 +840,21 @@ export default function Home() {
               color: '#080A2E',
               marginBottom: '1.5rem',
               textAlign: 'center'
-            }}>Login</h2>
-            <div style={{
-              display: 'flex',
-              gap: '1rem',
-              marginBottom: '1.5rem',
-              justifyContent: 'center'
-            }}>
-              <button
-                onClick={() => setIsAdminLogin(false)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: isAdminLogin ? 'rgba(8, 10, 46, 0.1)' : '#080A2E',
-                  color: isAdminLogin ? '#080A2E' : '#DDE3FF',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                Team Login
-              </button>
-              <button
-                onClick={() => setIsAdminLogin(true)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: isAdminLogin ? '#080A2E' : 'rgba(8, 10, 46, 0.1)',
-                  color: isAdminLogin ? '#DDE3FF' : '#080A2E',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                Admin Login
-              </button>
-            </div>
+            }}>Enter Team Code</h2>
             <form onSubmit={handleLogin}>
-              {isAdminLogin ? (
-                <input
-                  type="password"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  placeholder="Enter admin password"
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    marginBottom: '1rem',
-                    borderRadius: '4px',
-                    border: '1px solid #ccc'
-                  }}
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={teamCode}
-                  onChange={(e) => setTeamCode(e.target.value)}
-                  placeholder="Enter your team code"
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    marginBottom: '1rem',
-                    borderRadius: '4px',
-                    border: '1px solid #ccc'
-                  }}
-                />
-              )}
+              <input
+                type="text"
+                value={teamCode}
+                onChange={(e) => setTeamCode(e.target.value)}
+                placeholder="Enter your team code"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  marginBottom: '1rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
               <div style={{
                 display: 'flex',
                 gap: '1rem',
@@ -1264,7 +1134,7 @@ export default function Home() {
         <button type="submit" style={{ padding: '0.5rem 1rem', marginLeft: '1rem' }}>
           Search
         </button>
-        {isLoggedIn && (
+        {ADMIN_CODES.includes(teamName) && (
           <button 
             type="button" 
             onClick={handleClear}
@@ -1330,37 +1200,7 @@ export default function Home() {
         flexDirection: 'column',
         gap: '1rem'
       }}>
-        {isLoadingQueue ? (
-          <p style={{
-            fontSize: '1.5rem',
-            fontWeight: 'bold',
-            color: '#080A2E',
-            textAlign: 'center',
-            opacity: 0.5
-          }}>
-            Loading queue...
-          </p>
-        ) : queueError ? (
-          <div style={{
-            textAlign: 'center',
-            color: '#ff4444'
-          }}>
-            <p style={{ marginBottom: '1rem' }}>Error loading queue: {queueError}</p>
-            <button
-              onClick={() => fetchQueue()}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#080A2E',
-                color: '#DDE3FF',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Retry
-            </button>
-          </div>
-        ) : queue.length === 0 ? (
+        {queue.length === 0 ? (
           <p style={{
             fontSize: '1.5rem',
             fontWeight: 'bold',
@@ -1457,7 +1297,7 @@ export default function Home() {
                 }}>
                   {formatDuration(track.duration_ms)}
                 </span>
-                {isLoggedIn && (
+                {ADMIN_CODES.includes(teamName) && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1542,7 +1382,7 @@ export default function Home() {
           ))
         )}
       </div>
-      {isLoggedIn && (
+      {isLoggedIn && teamName === PLAYBACK_ADMIN ? (
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -1555,75 +1395,42 @@ export default function Home() {
           width: '100%',
           maxWidth: '800px'
         }}>
-          {currentlyPlaying && (
-            <div style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#2196F3',
-              color: '#fff',
-              borderRadius: '4px',
-              fontSize: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem'
-            }}>
-              <img 
-                src={currentlyPlaying.album.images?.[0]?.url || '/default-album.png'} 
-                alt={`${currentlyPlaying.album.name} cover`}
-                style={{
-                  width: '100px',
-                  height: '100px',
-                  borderRadius: '4px',
-                  objectFit: 'cover',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}
-              />
-              <div>
-                <div style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '0.5rem' }}>Now Playing:</div>
-                <div style={{ marginBottom: '0.25rem' }}>{currentlyPlaying.name}</div>
-                <div style={{ marginBottom: '0.25rem' }}>{currentlyPlaying.artists.map(artist => artist.name).join(', ')}</div>
-                <div>Album: {currentlyPlaying.album.name}</div>
-              </div>
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button
+              onClick={handlePlayNext}
+              disabled={!currentlyPlaying && queue.length === 0}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#4CAF50',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                opacity: queue.length === 0 ? 0.5 : 1
+              }}
+            >
+              Play Next Song
+            </button>
+            <button
+              onClick={handleSkip}
+              disabled={queue.length === 0}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#FF9800',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                opacity: queue.length === 0 ? 0.5 : 1
+              }}
+            >
+              Skip Current Song
+            </button>
+          </div>
           
-          {isAdmin && (
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button
-                onClick={handlePlayNext}
-                disabled={!currentlyPlaying && queue.length === 0}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: '#4CAF50',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
-                  fontSize: '1rem',
-                  opacity: queue.length === 0 ? 0.5 : 1
-                }}
-              >
-                Play Next Song
-              </button>
-              <button
-                onClick={handleSkip}
-                disabled={queue.length === 0}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: '#FF9800',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
-                  fontSize: '1rem',
-                  opacity: queue.length === 0 ? 0.5 : 1
-                }}
-              >
-                Skip Current Song
-              </button>
-            </div>
-          )}
-          
-          {isAdmin && activeDevices.length > 0 && (
+          {activeDevices.length > 0 && (
             <div style={{ color: '#DDE3FF' }}>
               <h3 style={{ marginBottom: '0.5rem' }}>Active Devices:</h3>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -1659,8 +1466,23 @@ export default function Home() {
               </div>
             </div>
           )}
+          
+          {currentlyPlaying && (
+            <div style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#2196F3',
+              color: '#fff',
+              borderRadius: '4px',
+              fontSize: '1rem'
+            }}>
+              <div style={{ fontWeight: 'bold' }}>Now Playing:</div>
+              <div>{currentlyPlaying.name}</div>
+              <div>{currentlyPlaying.artists.map(artist => artist.name).join(', ')}</div>
+              <div>Album: {currentlyPlaying.album.name}</div>
+            </div>
+          )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 } 
