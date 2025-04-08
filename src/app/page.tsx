@@ -179,7 +179,7 @@ export default function Home() {
       
       if (data.error) {
         console.error('Search error:', data.error);
-        if (data.error.includes('expired')) {
+        if (data.error.includes('expired') || data.error.includes('No token provided')) {
           // Clear the expired token for this team
           const tokenKey = `spotifyAccessToken_${teamName}`;
           localStorage.removeItem(tokenKey);
