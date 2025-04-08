@@ -1,6 +1,6 @@
 # HackToFuture 3.0 Spotify Queue
 
-A collaborative music queue system built for HackToFuture 3.0, allowing teams to add songs to a shared Spotify playlist with controlled playback. This project is hosted on Vercel for seamless deployment and continuous integration.
+A collaborative music jam system built for HackToFuture3.0, allowing teams to add songs to a shared Spotify jam session with controlled playback.
 
 ## 🎵 Features
 
@@ -11,10 +11,6 @@ A collaborative music queue system built for HackToFuture 3.0, allowing teams to
   - View current queue
   - Remove songs (admin only)
   - Clear entire queue (admin only)
-- **Playback Control**:
-  - Automatic next track playback
-  - Manual skip functionality
-  - Device selection for playback
 - **Admin Features**:
   - Exclusive playback control
   - Queue management capabilities
@@ -32,17 +28,17 @@ A collaborative music queue system built for HackToFuture 3.0, allowing teams to
 - Node.js (v14 or higher)
 - npm or yarn
 - Spotify Developer Account
-- MongoDB Atlas account
+- AppWrite account
 - Vercel account (for deployment)
 
 ### Environment Setup
 
 1. Create a `.env.local` file in the root directory with the following variables:
 ```env
-MONGODB_URI=your_mongodb_uri
+APPWRITE_URI=your_appwrite_uri
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-SPOTIFY_REDIRECT_URI=http://localhost:3000/api/spotify/callback
+SPOTIFY_REDIRECT_URI=http://htfy.vercel.app/api/spotify/callback
 ```
 
 ### Installation
@@ -67,13 +63,13 @@ npm run dev
 yarn dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+4. Open [https://htfy.vercel.app](https://htfy.vercel.app) in your browser.
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: Next.js, React, TypeScript
 - **Backend**: Next.js API Routes
-- **Database**: MongoDB
+- **Database**: AppWrite
 - **Authentication**: Custom team code system
 - **Styling**: CSS-in-JS
 - **API Integration**: Spotify Web API
@@ -118,7 +114,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Spotify for their excellent API
 - Next.js team for the amazing framework
-- MongoDB for the database service
+- AppWrite for the database service
 - Vercel for the hosting platform
 - All contributors and team members
 
