@@ -25,9 +25,7 @@ export default function Home() {
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 1000; // 1 s
   const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
-  const POLLING_INTERVAL = 10000; // 10 seconds instead of 3 seconds
-  const QUEUE_POLLING_INTERVAL = 5000; // 5 seconds for queue updates
-  const DEVICE_POLLING_INTERVAL = 30000; // 30 seconds for device updates
+  const POLLING_INTERVAL = 3000; // 3 seconds
 
   const [text, setText] = useState<string>('');
   const [queue, setQueue] = useState<SpotifyTrack[]>([]);
@@ -82,14 +80,12 @@ export default function Home() {
     const storedLoginState = localStorage.getItem('isLoggedIn');
     const storedTeamName = localStorage.getItem('teamName');
     const storedLastActivity = localStorage.getItem('lastActivity');
-    const storedIsAdmin = localStorage.getItem('isAdmin');
     
     if (storedLoginState === 'true' && storedTeamName) {
       const lastActivityTime = storedLastActivity ? parseInt(storedLastActivity) : Date.now();
       if (Date.now() - lastActivityTime <= SESSION_TIMEOUT) {
         setIsLoggedIn(true);
         setTeamName(storedTeamName);
-        setIsAdmin(storedIsAdmin === 'true');
         setLastActivity(lastActivityTime);
         
         // After setting team name, check for token in URL
@@ -119,85 +115,29 @@ export default function Home() {
   // Add this useEffect after the other useEffect hooks
   useEffect(() => {
     let pollInterval: NodeJS.Timeout;
-    let queueInterval: NodeJS.Timeout;
-    let deviceInterval: NodeJS.Timeout;
     let isMounted = true;
 
     // Only start polling if we're logged in
     if (isLoggedIn) {
       // Initial fetch
       fetchQueue();
-      if (spotifyAccessToken) {
-        fetchCurrentlyPlaying();
-        getActiveDevices();
-      }
 
-      // Set up polling intervals
-      pollInterval = setInterval(async () => {
-        if (isMounted && spotifyAccessToken) {
-          const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
-            headers: {
-              'Authorization': `Bearer ${spotifyAccessToken}`,
-            },
-          });
-
-          if (response.status === 200) {
-            const data = await response.json();
-            if (data.item) {
-              const track = {
-                id: data.item.id,
-                name: data.item.name,
-                artists: data.item.artists,
-                album: data.item.album,
-                uri: data.item.uri,
-                duration_ms: data.item.duration_ms,
-                explicit: data.item.explicit,
-                external_urls: data.item.external_urls
-              };
-              // Only update if the track has changed
-              if (!currentlyPlaying || currentlyPlaying.id !== track.id) {
-                setCurrentlyPlaying(track);
-              }
-            } else {
-              // No track is currently playing, check if we should play the next song
-              if (queue.length > 0 && isAdmin) {
-                console.log('No track playing, attempting to play next song...');
-                await handlePlayNext();
-              }
-              setCurrentlyPlaying(null);
-            }
-          } else if (response.status === 401) {
-            // Token expired, clear it
-            const tokenKey = `spotifyAccessToken_${teamName}`;
-            localStorage.removeItem(tokenKey);
-            setSpotifyAccessToken(null);
-          }
+      // Set up polling interval
+      pollInterval = setInterval(() => {
+        if (isMounted) {
+          fetchQueue();
         }
       }, POLLING_INTERVAL);
-
-      // Separate interval for queue updates
-      queueInterval = setInterval(async () => {
-        if (isMounted) {
-          await fetchQueue();
-        }
-      }, QUEUE_POLLING_INTERVAL);
-
-      // Separate interval for device updates
-      deviceInterval = setInterval(async () => {
-        if (isMounted && spotifyAccessToken) {
-          await getActiveDevices();
-        }
-      }, DEVICE_POLLING_INTERVAL);
     }
 
-    // Cleanup function to clear all intervals when component unmounts or user logs out
+    // Cleanup function to clear the interval when component unmounts or user logs out
     return () => {
       isMounted = false;
-      if (pollInterval) clearInterval(pollInterval);
-      if (queueInterval) clearInterval(queueInterval);
-      if (deviceInterval) clearInterval(deviceInterval);
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
     };
-  }, [isLoggedIn, spotifyAccessToken, teamName, queue, isAdmin, currentlyPlaying]); // Add currentlyPlaying to dependencies
+  }, [isLoggedIn]); // Only re-run if login state changes
 
   // Function to fetch the current queue from the API
   const fetchQueue = async (retryCount = 0) => {
@@ -398,7 +338,6 @@ export default function Home() {
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('teamName', adminName);
           localStorage.setItem('lastActivity', Date.now().toString());
-          localStorage.setItem('isAdmin', 'true');
           setShowLoginModal(false);
           setAdminPassword('');
           return;
@@ -429,7 +368,6 @@ export default function Home() {
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('teamName', teamName);
           localStorage.setItem('lastActivity', Date.now().toString());
-          localStorage.setItem('isAdmin', 'false');
           setShowLoginModal(false);
           setTeamCode('');
         } else {
@@ -607,13 +545,11 @@ export default function Home() {
     setActiveDevices([]);
     setSelectedDevice(null);
     setShowTeamDropdown(false);
-    setIsAdmin(false);
 
     // Clear all localStorage items
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('teamName');
     localStorage.removeItem('lastActivity');
-    localStorage.removeItem('isAdmin');
 
     // Clear any session storage
     sessionStorage.removeItem('pendingSpotifyTeam');
@@ -626,64 +562,70 @@ export default function Home() {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
     // Check if the current user is an admin
-    if (!isAdmin) {
-      alert('Only admins can control music playback');
-      return;
+    try {
+      const result = await verifyAdminCode(teamName);
+      if (!result.success) {
+        alert('Only admins can control music playback');
+        return;
+      }
+
+      // First, get active devices
+      await getActiveDevices();
+      
+      // If no active device, try to transfer playback to the first available device
+      console.log("Selected Device: " + selectedDevice);
+      if (!selectedDevice && activeDevices.length > 0) {
+          const deviceId = activeDevices[0].id;
+          await fetch('https://api.spotify.com/v1/me/player', {
+              method: 'PUT',
+              headers: {
+                  'Authorization': `Bearer ${spotifyAccessToken}`,
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                  device_ids: [deviceId],
+                  play: false,
+              }),
+          });
+          setSelectedDevice(deviceId);
+      }
+
+      const nextTrack = queue[0];
+      
+      // Call Spotify API to play the track
+      const response = await fetch('https://api.spotify.com/v1/me/player/play', {
+          method: 'PUT',
+          headers: {
+              'Authorization': `Bearer ${spotifyAccessToken}`,
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+              uris: [nextTrack.uri],
+              device_id: selectedDevice || activeDevices[0]?.id
+          }),
+      });
+
+      if (!response.ok) {
+          throw new Error('Failed to play track');
+      }
+
+      // Update currently playing track
+      setCurrentlyPlaying(nextTrack);
+      
+      // Remove the played track from the queue
+      const newQueue = queue.slice(1);
+      setQueue(newQueue);
+      
+      // Update the queue on the server
+      await fetch('/api/queue', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queue: newQueue }),
+      });
+    } catch (error) {
+        console.error('Error playing track:', error);
+        alert('Failed to play track. Please make sure you have an active Spotify device.');
     }
-
-    // First, get active devices
-    await getActiveDevices();
-    
-    // If no active device, try to transfer playback to the first available device
-    console.log("Selected Device: " + selectedDevice);
-    if (!selectedDevice && activeDevices.length > 0) {
-        const deviceId = activeDevices[0].id;
-        await fetch('https://api.spotify.com/v1/me/player', {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${spotifyAccessToken}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                device_ids: [deviceId],
-                play: false,
-            }),
-        });
-        setSelectedDevice(deviceId);
-    }
-
-    const nextTrack = queue[0];
-    
-    // Call Spotify API to play the track
-    const response = await fetch('https://api.spotify.com/v1/me/player/play', {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${spotifyAccessToken}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            uris: [nextTrack.uri],
-            device_id: selectedDevice || activeDevices[0]?.id
-        }),
-    });
-
-    if (!response.ok) {
-        throw new Error('Failed to play track');
-    }
-
-    // Update currently playing track
-    setCurrentlyPlaying(nextTrack);
-    
-    // Remove the played track from the queue
-    const newQueue = queue.slice(1);
-    setQueue(newQueue);
-    
-    // Update the queue on the server
-    await fetch('/api/queue', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ queue: newQueue }),
-    });
   };
 
   const handleQueueUpdate = async (newQueue: SpotifyTrack[]) => {
@@ -705,33 +647,39 @@ export default function Home() {
     if (!isLoggedIn || !spotifyAccessToken || queue.length === 0) return;
 
     // Check if the current user is an admin
-    if (!isAdmin) {
-      alert('Only admins can skip songs');
-      return;
+    try {
+      const result = await verifyAdminCode(teamName);
+      if (!result.success) {
+        alert('Only admins can skip songs');
+        return;
+      }
+
+      // Call Spotify API to skip the current track
+      const response = await fetch('https://api.spotify.com/v1/me/player/next', {
+          method: 'POST',
+          headers: {
+              'Authorization': `Bearer ${spotifyAccessToken}`,
+          },
+      });
+
+      if (!response.ok) {
+          throw new Error('Failed to skip track');
+      }
+
+      // Remove the current track from the queue
+      const newQueue = queue.slice(1);
+      setQueue(newQueue);
+      
+      // Update the queue on the server
+      await fetch('/api/queue', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queue: newQueue }),
+      });
+    } catch (error) {
+        console.error('Error skipping track:', error);
+        alert('Failed to skip track. Please try again.');
     }
-
-    // Call Spotify API to skip the current track
-    const response = await fetch('https://api.spotify.com/v1/me/player/next', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${spotifyAccessToken}`,
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error('Failed to skip track');
-    }
-
-    // Remove the current track from the queue
-    const newQueue = queue.slice(1);
-    setQueue(newQueue);
-    
-    // Update the queue on the server
-    await fetch('/api/queue', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ queue: newQueue }),
-    });
   };
 
   // Add this function to generate Spotify track URL
@@ -780,6 +728,13 @@ export default function Home() {
       console.error('Error getting devices:', error);
     }
   };
+
+  // Add this useEffect to check for active devices when Spotify is connected
+  useEffect(() => {
+    if (spotifyAccessToken) {
+      getActiveDevices();
+    }
+  }, [spotifyAccessToken]);
 
   const displaySongs = async() => {
     const res = await fetch('/api/queue');
@@ -836,51 +791,6 @@ export default function Home() {
     } catch (error) {
       console.error('Error checking admin status:', error);
       setIsAdmin(false);
-    }
-  };
-
-  // Add this function to fetch the currently playing track
-  const fetchCurrentlyPlaying = async () => {
-    try {
-      const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
-        headers: {
-          'Authorization': `Bearer ${spotifyAccessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Token expired, clear it
-          const tokenKey = `spotifyAccessToken_${teamName}`;
-          localStorage.removeItem(tokenKey);
-          setSpotifyAccessToken(null);
-          return;
-        }
-        throw new Error('Failed to fetch currently playing track');
-      }
-
-      const data = await response.json();
-      
-      if (data.item) {
-        const track = {
-          id: data.item.id,
-          name: data.item.name,
-          artists: data.item.artists,
-          album: data.item.album,
-          uri: data.item.uri,
-          duration_ms: data.item.duration_ms,
-          explicit: data.item.explicit,
-          external_urls: data.item.external_urls
-        };
-        console.log('Currently playing track:', track);
-        setCurrentlyPlaying(track);
-      } else {
-        console.log('No track currently playing');
-        setCurrentlyPlaying(null);
-      }
-    } catch (error) {
-      console.error('Error fetching currently playing track:', error);
-      setCurrentlyPlaying(null);
     }
   };
 
