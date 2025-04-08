@@ -1,6 +1,6 @@
 # HackToFuture 3.0 Spotify Queue
 
-A collaborative music queue system built for HackToFuture 3.0, allowing teams to add songs to a shared Spotify playlist with controlled playback.
+A collaborative music jam system built for HackToFuture3.0, allowing teams to add songs to a shared Spotify jam session with controlled playback.
 
 ## 🎵 Features
 
@@ -11,10 +11,6 @@ A collaborative music queue system built for HackToFuture 3.0, allowing teams to
   - View current queue
   - Remove songs (admin only)
   - Clear entire queue (admin only)
-- **Playback Control**:
-  - Automatic next track playback
-  - Manual skip functionality
-  - Device selection for playback
 - **Admin Features**:
   - Exclusive playback control
   - Queue management capabilities
